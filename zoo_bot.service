@@ -1,0 +1,15 @@
+[Unit]
+Description=ZooBuddy Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/zoo_bot
+Environment=PATH=/root/zoo_bot/venv/bin
+ExecStart=/root/zoo_bot/venv/bin/python bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
