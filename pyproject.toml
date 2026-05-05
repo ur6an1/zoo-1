@@ -7,4 +7,38 @@ select = ["E", "F", "W", "I"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["bot/tests", "backend/tests", "worker/tests"]
+testpaths = ["shared/tests", "bot/tests", "backend/tests", "worker/tests"]
+import_mode = "importlib"
+
+[tool.coverage.run]
+source = [
+    "shared/zoo_shared",
+    "bot/bot/utils",
+    "backend/backend/services",
+    "worker/worker",
+]
+omit = [
+    "*/tests/*",
+    "*/conftest.py",
+    "alembic/*",
+    "bot/bot/handlers/*",
+    "bot/bot/keyboards/*",
+    "bot/bot/states/*",
+    "bot/bot/middlewares/*",
+    "bot/bot/main.py",
+    "backend/backend/main.py",
+    "backend/backend/deps.py",
+    "backend/backend/routers/*",
+    "backend/backend/services/scheduler.py",
+    "backend/backend/services/provider_health.py",
+    "worker/worker/main.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 75
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__",
+    "raise NotImplementedError",
+]
