@@ -1,0 +1,100 @@
+x-shared-env: &shared-env
+  DATABASE_URL: postgresql+asyncpg://zoo:${POSTGRES_PASSWORD:-changeme}@postgres:5432/zoo_bot
+  REDIS_URL: redis://redis:6379/0
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: zoo_bot
+      POSTGRES_USER: zoo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zoo"]
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *shared-env
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-}
+      OPENROUTER_APP_NAME: ${OPENROUTER_APP_NAME:-zoo_bot}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-whisper-1}
+      WEATHER_API_KEY: ${WEATHER_API_KEY:-}
+      YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
+      YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
+      RECEIPT_EMAIL: ${RECEIPT_EMAIL:-}
+      PAYMENT_RETURN_URL: ${PAYMENT_RETURN_URL:-}
+      FREE_AI_LIMIT: ${FREE_AI_LIMIT:-10}
+      FREE_PET_LIMIT: ${FREE_PET_LIMIT:-2}
+      AI_MAX_TOKENS_VISION: ${AI_MAX_TOKENS_VISION:-1600}
+      AI_MAX_TOKENS_TEXT: ${AI_MAX_TOKENS_TEXT:-1800}
+      ADMIN_IDS: ${ADMIN_IDS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      retries: 3
+
+  bot:
+    build:
+      context: .
+      dockerfile: docker/bot.Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *shared-env
+      BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}
+      BACKEND_URL: http://backend:8000
+      BOT_TIMEZONE: ${BOT_TIMEZONE:-Europe/Moscow}
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *shared-env
+      BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}
+      BOT_TIMEZONE: ${BOT_TIMEZONE:-Europe/Moscow}
+      WEATHER_API_KEY: ${WEATHER_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  redis_data:
