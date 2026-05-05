@@ -116,6 +116,28 @@ make migrate
 - `BOT_TOKEN` — токен Telegram-бота
 - `POSTGRES_PASSWORD` — пароль для PostgreSQL
 
+## CI/CD
+
+При пуше в `main` автоматически запускается GitHub Actions workflow:
+
+1. **test** — устанавливает зависимости, запускает `pytest --cov-fail-under=75` и `ruff check .`
+2. **deploy** — подключается по SSH к VPS, делает `git pull` и `docker compose up -d --build`
+
+### Настройка деплоя
+
+Добавьте GitHub Secrets в настройках репозитория:
+
+| Secret | Описание |
+|--------|----------|
+| `VPS_HOST` | IP или домен сервера |
+| `VPS_USER` | SSH-пользователь |
+| `VPS_SSH_KEY` | Приватный SSH-ключ |
+
+На сервере должно быть:
+- Docker + Docker Compose
+- `git clone` репозитория в `/opt/zoo_bot`
+- Файл `.env` с реальными секретами
+
 ## Документация
 
 - [План рефакторинга](docs/REFACTORING.md) — описание архитектуры, фаз, маппинга файлов
