@@ -2,14 +2,13 @@
 
 import io
 import logging
-from datetime import datetime, date, timedelta
 from collections import defaultdict
+from datetime import date, datetime, timedelta
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from matplotlib.patches import FancyBboxPatch
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +171,9 @@ def generate_feeding_chart(food_entries: list, water_entries: list, pet_names: d
         return None
 
 
-def generate_daily_timeline(food_entries: list, water_entries: list, pet_names: dict, target_date: date = None) -> bytes | None:
+def generate_daily_timeline(
+    food_entries: list, water_entries: list, pet_names: dict, target_date: date = None,
+) -> bytes | None:
     """Генерирует таймлайн питания за день.
 
     Горизонтальная шкала 0-24 часа, точки = приёмы пищи и воды.
@@ -241,7 +242,10 @@ def generate_daily_timeline(food_entries: list, water_entries: list, pet_names: 
                 hours = []
                 labels = []
                 for e in pet_water:
-                    t = e.recorded_at if isinstance(e.recorded_at, datetime) else datetime.combine(target_date, e.recorded_at)
+                    t = (
+                        e.recorded_at if isinstance(e.recorded_at, datetime)
+                        else datetime.combine(target_date, e.recorded_at)
+                    )
                     h = t.hour + t.minute / 60
                     hours.append(h)
                     labels.append(f"{e.amount_ml}мл")

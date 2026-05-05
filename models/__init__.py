@@ -1,14 +1,14 @@
 from models.models import (
+    Allergy,
     Base,
+    Document,
+    FoodEntry,
     Pet,
     Reminder,
     Vaccination,
     VetVisit,
-    WeightRecord,
-    FoodEntry,
     WaterEntry,
-    Allergy,
-    Document,
+    WeightRecord,
 )
 
 __all__ = [

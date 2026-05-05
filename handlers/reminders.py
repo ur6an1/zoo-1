@@ -4,29 +4,29 @@ import logging
 from datetime import datetime
 from html import escape
 
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 
 from database import async_session
-from keyboards.keyboards import add_pet_cta_kb
-from models.models import Pet, Reminder
-from states.states import ReminderForm
 from keyboards.keyboards import (
-    reminders_menu_kb,
+    add_pet_cta_kb,
+    back_to_menu_kb,
+    cancel_kb,
+    pets_list_kb,
     reminder_category_kb,
+    reminder_detail_kb,
     reminder_repeat_kb,
     reminders_list_kb,
-    reminder_detail_kb,
-    pets_list_kb,
-    cancel_kb,
-    back_to_menu_kb,
+    reminders_menu_kb,
 )
+from models.models import Pet, Reminder
 from services.access import get_owned_pet, get_owned_reminder
 from services.analytics import track_user_activity
+from services.scheduler import remove_reminder_job, schedule_reminder
+from states.states import ReminderForm
 from utils.helpers import callback_int, format_datetime, parse_date, parse_time
-from services.scheduler import schedule_reminder, remove_reminder_job
 
 logger = logging.getLogger(__name__)
 router = Router(name="reminders")
@@ -354,7 +354,6 @@ async def cb_reminder_pause(callback: CallbackQuery):
         reminder.is_active = False
         await session.commit()
         remove_reminder_job(reminder.id)
-        pet = await get_owned_pet(session, callback.from_user.id, reminder.pet_id)
 
     await callback.message.edit_text(
         f"⏸ Напоминание <b>{escape(reminder.title)}</b> приостановлено.\n"

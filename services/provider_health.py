@@ -10,11 +10,11 @@ import aiohttp
 from config import (
     OPENAI_API_KEY,
     OPENROUTER_API_KEY,
-    OPENROUTER_BASE_URL,
     OPENROUTER_APP_NAME,
+    OPENROUTER_BASE_URL,
     OPENROUTER_SITE_URL,
-    YOOKASSA_SHOP_ID,
     YOOKASSA_SECRET_KEY,
+    YOOKASSA_SHOP_ID,
 )
 
 logger = logging.getLogger(__name__)

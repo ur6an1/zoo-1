@@ -1,6 +1,7 @@
 """Сервис погоды для уведомлений владельцев питомцев."""
 
 import logging
+
 import aiohttp
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,11 @@ async def get_weather(city: str) -> dict | None:
                     "feels_like": int(current["FeelsLikeC"]),
                     "humidity": int(current["humidity"]),
                     "wind_kmph": int(current["windspeedKmph"]),
-                    "description": current.get("lang_ru", [{}])[0].get("value", current.get("weatherDesc", [{}])[0].get("value", "")),
+                    "description": (
+                        current.get("lang_ru", [{}])[0].get(
+                            "value", current.get("weatherDesc", [{}])[0].get("value", "")
+                        )
+                    ),
                     "uv": int(current.get("uvIndex", 0)),
                 }
     except Exception as e:
@@ -46,11 +51,17 @@ def generate_pet_weather_alert(weather: dict, species: str = "собака") -> 
     uv = weather["uv"]
 
     if temp >= 30:
-        alerts.append(f"🔴 <b>Жара {temp}°C!</b> Не гуляйте в пик жары (12-16ч). Берите воду. Проверяйте лапы на горячем асфальте!")
+        alerts.append(
+            f"🔴 <b>Жара {temp}°C!</b> Не гуляйте в пик жары (12-16ч). Берите воду."
+            " Проверяйте лапы на горячем асфальте!"
+        )
     elif temp >= 25:
         alerts.append(f"🟡 <b>Тепло {temp}°C.</b> Гуляйте в тени, берите воду.")
     elif temp <= -15:
-        alerts.append(f"🔴 <b>Мороз {temp}°C!</b> Сократите прогулку. Мелким породам нужна одежда. Протирайте лапы от реагентов.")
+        alerts.append(
+            f"🔴 <b>Мороз {temp}°C!</b> Сократите прогулку. Мелким породам нужна одежда."
+            " Протирайте лапы от реагентов."
+        )
     elif temp <= -5:
         alerts.append(f"🟡 <b>Холод {temp}°C.</b> Одевайте питомца, если он мёрзнет.")
 
@@ -60,7 +71,10 @@ def generate_pet_weather_alert(weather: dict, species: str = "собака") -> 
         alerts.append(f"💨 Ветрено ({wind} км/ч). Мелким питомцам может быть некомфортно.")
 
     if uv >= 8:
-        alerts.append(f"☀️ <b>UV-индекс {uv}!</b> Избегайте прямого солнца, возможен солнечный ожог (особенно для светлых пород).")
+        alerts.append(
+            f"☀️ <b>UV-индекс {uv}!</b> Избегайте прямого солнца,"
+            " возможен солнечный ожог (особенно для светлых пород)."
+        )
     elif uv >= 6:
         alerts.append(f"🌤 UV-индекс {uv}. Гуляйте в тени.")
 

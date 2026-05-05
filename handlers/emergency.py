@@ -2,18 +2,18 @@
 
 import logging
 
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, Message
 
-from keyboards.keyboards import emergency_kb, location_kb, back_to_menu_kb, main_menu_kb, clinic_radius_kb
+from keyboards.keyboards import back_to_menu_kb, clinic_radius_kb, emergency_kb, location_kb, main_menu_kb
+from services.clinics import search_and_format
 from services.content import (
-    EMERGENCY_POISONING,
+    EMERGENCY_GENERAL,
     EMERGENCY_INJURY,
     EMERGENCY_OVERHEAT,
-    EMERGENCY_GENERAL,
+    EMERGENCY_POISONING,
 )
-from services.clinics import search_and_format
 from states.states import ClinicSearchForm
 from utils.helpers import callback_int
 

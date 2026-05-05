@@ -3,30 +3,31 @@
 import logging
 from datetime import datetime
 from html import escape
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, BufferedInputFile, InlineKeyboardButton, InlineKeyboardMarkup
+
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import select, func
+from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from sqlalchemy import func, select
 
 from database import async_session
-from models.models import Pet, Reminder, Vaccination, VetVisit, WeightRecord, FoodEntry, WaterEntry, Allergy, Document
-from states.states import PetForm, EditPetForm
 from keyboards.keyboards import (
-    pets_list_kb,
-    pet_profile_kb,
-    pet_edit_kb,
-    post_pet_created_kb,
-    confirm_delete_kb,
-    species_kb,
-    skip_kb,
-    cancel_kb,
-    main_menu_kb,
     back_to_menu_kb,
+    cancel_kb,
+    confirm_delete_kb,
+    main_menu_kb,
+    pet_edit_kb,
+    pet_profile_kb,
+    pets_list_kb,
+    post_pet_created_kb,
+    skip_kb,
+    species_kb,
 )
+from models.models import Allergy, Document, FoodEntry, Pet, Reminder, Vaccination, VetVisit, WaterEntry, WeightRecord
 from services.access import get_owned_pet
 from services.analytics import track_event, track_user_activity
+from services.subscription import can_use_pdf_export, check_pet_limit, get_plan_tier
+from states.states import EditPetForm, PetForm
 from utils.helpers import callback_int, callback_part, format_date, parse_date, parse_weight
-from services.subscription import check_pet_limit, can_use_pdf_export, get_plan_tier
 
 logger = logging.getLogger(__name__)
 router = Router(name="pets")

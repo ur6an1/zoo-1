@@ -1,7 +1,7 @@
 """Планировщик напоминаний на основе APScheduler."""
 
 import logging
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -9,9 +9,9 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 
-from database import async_session
-from models.models import Reminder, Vaccination, Pet
 from config import BOT_TIMEZONE
+from database import async_session
+from models.models import Pet, Reminder, Vaccination
 
 logger = logging.getLogger(__name__)
 
@@ -295,7 +295,7 @@ async def send_weather_notifications():
         return
 
     from models.models import UserSettings
-    from services.weather import get_weather, generate_pet_weather_alert
+    from services.weather import generate_pet_weather_alert, get_weather
 
     users = []
     species_by_user: dict[int, set[str]] = {}

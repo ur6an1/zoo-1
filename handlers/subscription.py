@@ -19,8 +19,8 @@ from services.subscription import (
     can_use_weather_notifications,
     get_or_create_settings,
     grant_premium,
-    revoke_premium,
     is_premium,
+    revoke_premium,
 )
 from states.states import WeatherCityForm
 

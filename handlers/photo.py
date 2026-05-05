@@ -2,35 +2,36 @@
 
 import logging
 from html import escape
-from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy import select
 
 from config import FREE_AI_LIMIT
 from database import async_session
-from models.models import Pet
-from states.states import NutritionForm, SymptomsForm
 from keyboards.keyboards import (
     add_pet_cta_kb,
-    photo_menu_kb,
     back_to_menu_kb,
-    main_menu_kb,
     cancel_kb,
+    main_menu_kb,
     pets_list_kb,
+    photo_menu_kb,
 )
+from models.models import Pet
 from services.access import get_owned_pet
 from services.analytics import track_user_activity
+from services.provider_health import is_ai_operational
+from services.subscription import check_ai_limit, refund_ai_limit
 from services.vision import (
-    analyze_pet_photo,
-    analyze_food_photo,
     analyze_food_for_pet,
+    analyze_food_photo,
+    analyze_pet_photo,
     consult_symptoms,
     transcribe_voice,
 )
+from states.states import NutritionForm, SymptomsForm
 from utils.helpers import callback_int, format_date
-from services.provider_health import is_ai_operational
-from services.subscription import check_ai_limit, refund_ai_limit
 
 logger = logging.getLogger(__name__)
 router = Router(name="photo")
@@ -303,7 +304,9 @@ async def nutrition_photo_received(message: Message, state: FSMContext, bot: Bot
     except Exception as e:
         logger.error(f"Ошибка скачивания фото: {e}")
         await refund_ai_limit(message.from_user.id)
-        await processing_msg.edit_text("😕 Не удалось загрузить фото. Попробуйте ещё раз.", reply_markup=back_to_menu_kb)
+        await processing_msg.edit_text(
+            "😕 Не удалось загрузить фото. Попробуйте ещё раз.", reply_markup=back_to_menu_kb
+        )
         return
 
     result = await analyze_food_for_pet(image_data, pet_info)
@@ -577,7 +580,7 @@ async def handle_photo(message: Message, state: FSMContext, bot: Bot):
     current_state = await state.get_state()
 
     # Не перехватываем фото из других FSM-потоков (добавление питомца, документы и т.д.)
-    from states.states import CompareForm, MedicalTestForm, PetForm, EditPetForm, DocumentForm, NutritionForm
+    from states.states import CompareForm, DocumentForm, EditPetForm, MedicalTestForm, NutritionForm, PetForm
     protected_states = [
         PetForm.photo.state,
         EditPetForm.editing_photo.state,

@@ -5,25 +5,25 @@ import logging
 from datetime import date as date_type
 from html import escape
 
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, BufferedInputFile
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
+from aiogram.types import BufferedInputFile, CallbackQuery, Message
 from sqlalchemy import select
 
 from database import async_session
-from models.models import Pet, Vaccination, VetVisit, WeightRecord, Document
-from states.states import VaccinationForm, VetVisitForm, WeightForm, DocumentForm
 from keyboards.keyboards import (
     add_pet_cta_kb,
-    medical_menu_kb,
+    back_to_menu_kb,
+    cancel_kb,
+    doc_type_kb,
     med_section_kb,
+    medical_menu_kb,
     pets_list_kb,
     skip_kb,
-    cancel_kb,
-    back_to_menu_kb,
-    doc_type_kb,
 )
+from models.models import Document, Pet, Vaccination, VetVisit, WeightRecord
 from services.access import get_owned_pet
+from states.states import DocumentForm, VaccinationForm, VetVisitForm, WeightForm
 from utils.helpers import callback_int, format_date, parse_date, parse_weight
 
 logger = logging.getLogger(__name__)
@@ -558,8 +558,8 @@ async def cb_weight_chart(callback: CallbackQuery):
     try:
         import matplotlib
         matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
         import matplotlib.dates as mdates
+        import matplotlib.pyplot as plt
 
         pet_map = {p.id: p.name for p in pets}
 

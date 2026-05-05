@@ -1,16 +1,17 @@
 """Модели базы данных."""
 
-from datetime import datetime, date
+from datetime import date, datetime
+
 from sqlalchemy import (
     BigInteger,
-    String,
-    Float,
+    Boolean,
     Date,
     DateTime,
-    Text,
+    Float,
     ForeignKey,
     Integer,
-    Boolean,
+    String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -185,7 +186,10 @@ class Reminder(Base):
 
     @property
     def repeat_text(self) -> str:
-        texts = {"once": "разово", "daily": "ежедневно", "weekly": "еженедельно", "monthly": "ежемесячно", "yearly": "ежегодно"}
+        texts = {
+            "once": "разово", "daily": "ежедневно", "weekly": "еженедельно",
+            "monthly": "ежемесячно", "yearly": "ежегодно",
+        }
         return texts.get(self.repeat, self.repeat)
 
 

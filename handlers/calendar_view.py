@@ -3,13 +3,13 @@
 import logging
 from datetime import datetime, timedelta
 
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram import F, Router
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 
 from database import async_session
-from models.models import Pet, Reminder, Vaccination, VetVisit
 from keyboards.keyboards import back_to_menu_kb, main_menu_kb
+from models.models import Pet, Reminder, Vaccination, VetVisit
 from utils.helpers import format_date
 
 logger = logging.getLogger(__name__)

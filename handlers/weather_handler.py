@@ -2,15 +2,16 @@
 
 import logging
 from html import escape
-from aiogram import Router, F
+
+from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 
 from database import async_session
-from models.models import Pet, UserSettings
-from keyboards.keyboards import main_menu_kb, back_to_menu_kb
-from services.weather import get_weather, generate_pet_weather_alert
+from keyboards.keyboards import back_to_menu_kb, main_menu_kb
+from models.models import Pet
 from services.subscription import get_or_create_settings
+from services.weather import generate_pet_weather_alert, get_weather
 
 logger = logging.getLogger(__name__)
 router = Router(name="weather_handler")

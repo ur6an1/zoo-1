@@ -1,33 +1,33 @@
 """Обработчики: дневник питания (еда, вода, аллергии, графики)."""
 
 import logging
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from html import escape
 
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, BufferedInputFile
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import select, and_
+from aiogram.types import BufferedInputFile, CallbackQuery, Message
+from sqlalchemy import and_, select
 
 from database import async_session
-from models.models import Pet, FoodEntry, WaterEntry, Allergy
-from states.states import FoodForm, WaterForm, AllergyForm
 from keyboards.keyboards import (
     add_pet_cta_kb,
-    food_menu_kb,
-    food_analytics_kb,
-    food_action_kb,
-    water_action_kb,
     allergy_action_kb,
     allergy_list_kb,
-    food_clear_confirm_kb,
-    pets_list_kb,
-    cancel_kb,
     back_to_menu_kb,
+    cancel_kb,
+    food_action_kb,
+    food_analytics_kb,
+    food_clear_confirm_kb,
+    food_menu_kb,
+    pets_list_kb,
+    water_action_kb,
 )
+from models.models import Allergy, FoodEntry, Pet, WaterEntry
 from services.access import get_owned_allergy, get_owned_pet
+from services.charts import generate_daily_timeline, generate_feeding_chart
+from states.states import AllergyForm, FoodForm, WaterForm
 from utils.helpers import callback_int, format_datetime, parse_amount
-from services.charts import generate_feeding_chart, generate_daily_timeline
 
 logger = logging.getLogger(__name__)
 router = Router(name="food")
