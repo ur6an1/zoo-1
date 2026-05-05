@@ -1,0 +1,29 @@
+# Dev overrides: volume mounts for live reload, exposed ports for debugging.
+# This file is automatically loaded by `docker compose up` in development.
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./shared:/app/shared
+      - ./backend:/app/backend
+      - ./alembic:/app/alembic
+
+  bot:
+    volumes:
+      - ./shared:/app/shared
+      - ./bot:/app/bot
+
+  worker:
+    volumes:
+      - ./shared:/app/shared
+      - ./worker:/app/worker
