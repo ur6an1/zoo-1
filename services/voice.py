@@ -1,7 +1,9 @@
 """Сервис распознавания голосовых сообщений через OpenAI Whisper API."""
 
 import logging
+
 import aiohttp
+
 from config import OPENAI_API_KEY, OPENAI_TRANSCRIBE_MODEL
 
 logger = logging.getLogger(__name__)

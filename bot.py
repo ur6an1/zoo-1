@@ -21,13 +21,18 @@ except Exception:  # pragma: no cover - optional dependency
 from config import BOT_TOKEN, REDIS_URL
 from database import init_db
 from handlers import get_all_routers
-from middlewares.throttle import ThrottleMiddleware
 from middlewares.error_guard import ErrorGuardMiddleware
-from services.scheduler import (
-    scheduler, set_bot, load_all_reminders,
-    schedule_daily_vaccination_check, schedule_payment_reconciliation, schedule_weather_notifications, schedule_subscription_expiration_notifications,
-)
+from middlewares.throttle import ThrottleMiddleware
 from services.provider_health import refresh_provider_health
+from services.scheduler import (
+    load_all_reminders,
+    schedule_daily_vaccination_check,
+    schedule_payment_reconciliation,
+    schedule_subscription_expiration_notifications,
+    schedule_weather_notifications,
+    scheduler,
+    set_bot,
+)
 
 # ──────────────────── ЛОГИРОВАНИЕ ────────────────────
 

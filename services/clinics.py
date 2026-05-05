@@ -1,8 +1,9 @@
 """Поиск ветеринарных клиник через Overpass API (OpenStreetMap) — бесплатно."""
 
-from html import escape
 import logging
 import math
+from html import escape
+
 import aiohttp
 
 logger = logging.getLogger(__name__)

@@ -2,17 +2,16 @@
 
 import logging
 from html import escape
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import select
+from aiogram.types import CallbackQuery, Message
 
 from database import async_session
-from models.models import Pet
-from states.states import WeightGoalForm
-from keyboards.keyboards import back_to_menu_kb, cancel_kb, pets_list_kb
+from keyboards.keyboards import back_to_menu_kb, cancel_kb
 from services.access import get_owned_pet
 from services.norms import weight_progress
+from states.states import WeightGoalForm
 from utils.helpers import callback_int, parse_weight
 
 logger = logging.getLogger(__name__)
@@ -57,7 +56,7 @@ async def cb_weight_goal(callback: CallbackQuery):
     ):
         lines.append("\n🎉 <b>Поздравляем! Целевой вес достигнут!</b>")
 
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -145,7 +144,7 @@ async def weight_goal_target_value(message: Message, state: FSMContext):
 
         progress = weight_progress(pet.weight, target)
         lines = [
-            f"✅ <b>Целевой вес установлен!</b>\n",
+            "✅ <b>Целевой вес установлен!</b>\n",
             f"{pet.species_emoji} {escape(pet.name)}",
             f"⚖️ Текущий вес: <b>{f'{pet.weight} кг' if pet.weight else 'не указан'}</b>",
             f"🎯 Цель: <b>{target} кг</b>",

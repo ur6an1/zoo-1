@@ -1,15 +1,15 @@
 """Обработчики: отображение суточных норм еды и воды."""
 
 import logging
-from datetime import datetime, date
+from datetime import date, datetime
 
-from aiogram import Router, F
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 
 from database import async_session
-from models.models import Pet, FoodEntry, WaterEntry
 from keyboards.keyboards import back_to_menu_kb
+from models.models import FoodEntry, Pet, WaterEntry
 from services.norms import calc_food_norm, calc_progress_bar
 
 logger = logging.getLogger(__name__)

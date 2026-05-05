@@ -1,12 +1,12 @@
 """Middleware: throttle для callback и rate limit для AI-запросов."""
 
-import time
 import logging
-from typing import Any, Awaitable, Callable
+import time
 from collections import defaultdict
+from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery
 
 logger = logging.getLogger(__name__)
 

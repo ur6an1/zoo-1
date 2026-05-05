@@ -1,11 +1,12 @@
 """Обработчики: советы по уходу, FAQ, питание."""
 
 import logging
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
 
-from keyboards.keyboards import tips_menu_kb, back_to_menu_kb
-from services.content import TIPS, FAQ_TEXT, NUTRITION_TEXT
+from aiogram import F, Router
+from aiogram.types import CallbackQuery, Message
+
+from keyboards.keyboards import back_to_menu_kb, tips_menu_kb
+from services.content import FAQ_TEXT, NUTRITION_TEXT, TIPS
 
 logger = logging.getLogger(__name__)
 router = Router(name="tips")

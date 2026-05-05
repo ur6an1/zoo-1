@@ -15,7 +15,8 @@ from aiogram.types import (
 )
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from yookassa import Configuration, Payment as YooPayment
+from yookassa import Configuration
+from yookassa import Payment as YooPayment
 
 from config import PAYMENT_RETURN_URL, RECEIPT_EMAIL, YOOKASSA_SECRET_KEY, YOOKASSA_SHOP_ID
 from database import async_session
@@ -754,17 +755,23 @@ async def pre_checkout(pcq: PreCheckoutQuery):
     payload = pcq.invoice_payload or ""
     parts = payload.split(":")
     if len(parts) != 3 or parts[0] != "zoo":
-        await track_event(pcq.from_user.id, "payment_failed", source="stars_pre_checkout", payload={"reason": "bad_payload"})
+        await track_event(
+            pcq.from_user.id, "payment_failed", source="stars_pre_checkout", payload={"reason": "bad_payload"}
+        )
         await pcq.answer(ok=False, error_message="Неверный платёж.")
         return
 
     _prefix, plan_key, payload_user_id = parts
     if plan_key not in PLANS:
-        await track_event(pcq.from_user.id, "payment_failed", source="stars_pre_checkout", payload={"reason": "bad_plan"})
+        await track_event(
+            pcq.from_user.id, "payment_failed", source="stars_pre_checkout", payload={"reason": "bad_plan"}
+        )
         await pcq.answer(ok=False, error_message="Неверный тариф.")
         return
     if str(pcq.from_user.id) != payload_user_id:
-        await track_event(pcq.from_user.id, "payment_failed", source="stars_pre_checkout", payload={"reason": "user_mismatch"})
+        await track_event(
+            pcq.from_user.id, "payment_failed", source="stars_pre_checkout", payload={"reason": "user_mismatch"}
+        )
         await pcq.answer(ok=False, error_message="Платёж привязан к другому пользователю.")
         return
 

@@ -72,7 +72,11 @@ async def get_or_create_settings(user_id: int) -> UserSettings:
             return settings
 
         changed = False
-        if settings.is_premium and settings.premium_until and settings.premium_until + timedelta(days=GRACE_DAYS) <= datetime.utcnow():
+        expired = (
+            settings.is_premium and settings.premium_until
+            and settings.premium_until + timedelta(days=GRACE_DAYS) <= datetime.utcnow()
+        )
+        if expired:
             settings.is_premium = False
             settings.premium_until = None
             settings.plan_tier = PLAN_FREE

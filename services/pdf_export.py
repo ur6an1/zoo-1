@@ -3,6 +3,7 @@
 import io
 import logging
 from datetime import datetime
+
 from fpdf import FPDF
 
 logger = logging.getLogger(__name__)
