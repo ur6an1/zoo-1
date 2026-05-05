@@ -1,0 +1,20 @@
+[project]
+name = "zoo-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "alembic>=1.13",
+    "aiohttp>=3.9",
+    "matplotlib>=3.8",
+    "Pillow>=10.0",
+    "fpdf2>=2.7",
+    "yookassa>=3.0",
+    "redis>=5.0",
+    "zoo-shared",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
