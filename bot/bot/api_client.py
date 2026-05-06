@@ -588,14 +588,14 @@ async def is_card_payment_operational() -> bool:
     return r.json()["operational"]
 
 
-async def get_weather(city: str) -> str | None:
+async def get_weather(city: str) -> dict | None:
     c = await get_client()
     r = await c.get(f"/services/weather/{city}")
     r.raise_for_status()
     return r.json()["data"]
 
 
-async def get_weather_alert(weather_data: str, species: str, pet_name: str) -> str | None:
+async def get_weather_alert(weather_data: dict, species: str, pet_name: str = "") -> str | None:
     c = await get_client()
     r = await c.post("/services/weather/alert", json={
         "weather_data": weather_data, "species": species, "pet_name": pet_name,

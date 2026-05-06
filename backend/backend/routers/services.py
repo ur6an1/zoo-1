@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+from types import SimpleNamespace
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -36,14 +39,14 @@ async def weather(city: str):
 
 
 class WeatherAlertRequest(BaseModel):
-    weather_data: str
+    weather_data: dict
     species: str
-    pet_name: str
+    pet_name: str = ""
 
 
 @router.post("/weather/alert")
 async def weather_alert(body: WeatherAlertRequest):
-    result = await generate_pet_weather_alert(body.weather_data, body.species, body.pet_name)
+    result = generate_pet_weather_alert(body.weather_data, body.species)
     return {"alert": result}
 
 
@@ -82,20 +85,25 @@ class ChartRequest(BaseModel):
     entries: list[dict]
 
 
+def _entries_to_objects(entries: list[dict]) -> list:
+    """Convert dicts to SimpleNamespace objects for chart functions."""
+    return [SimpleNamespace(**e) for e in entries]
+
+
 @router.post("/charts/feeding")
 async def feeding_chart(body: ChartRequest):
-    img_bytes = generate_feeding_chart(body.pet_name, body.entries)
+    entry_objects = _entries_to_objects(body.entries)
+    img_bytes = generate_feeding_chart(entry_objects, [], {0: body.pet_name})
     if img_bytes:
-        import base64
         return {"image": base64.b64encode(img_bytes).decode()}
     return {"image": None}
 
 
 @router.post("/charts/timeline")
 async def timeline_chart(body: ChartRequest):
-    img_bytes = generate_daily_timeline(body.pet_name, body.entries)
+    entry_objects = _entries_to_objects(body.entries)
+    img_bytes = generate_daily_timeline(entry_objects, [], {0: body.pet_name})
     if img_bytes:
-        import base64
         return {"image": base64.b64encode(img_bytes).decode()}
     return {"image": None}
 

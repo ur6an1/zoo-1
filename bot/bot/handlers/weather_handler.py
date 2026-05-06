@@ -6,12 +6,53 @@ from html import escape
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
 
-from backend.backend.services.weather import generate_pet_weather_alert, get_weather
 from bot import api_client
 from bot.keyboards.keyboards import back_to_menu_kb, main_menu_kb
 
 logger = logging.getLogger(__name__)
 router = Router(name="weather_handler")
+
+
+def _generate_pet_weather_alert(weather: dict, species: str = "собака") -> str | None:
+    """Генерирует предупреждение для питомца на основе погоды."""
+    alerts = []
+    temp = weather["temp_c"]
+    wind = weather["wind_kmph"]
+    uv = weather["uv"]
+
+    if temp >= 30:
+        alerts.append(
+            f"🔴 <b>Жара {temp}°C!</b> Не гуляйте в пик жары (12-16ч). Берите воду."
+            " Проверяйте лапы на горячем асфальте!"
+        )
+    elif temp >= 25:
+        alerts.append(f"🟡 <b>Тепло {temp}°C.</b> Гуляйте в тени, берите воду.")
+    elif temp <= -15:
+        alerts.append(
+            f"🔴 <b>Мороз {temp}°C!</b> Сократите прогулку. Мелким породам нужна одежда."
+            " Протирайте лапы от реагентов."
+        )
+    elif temp <= -5:
+        alerts.append(f"🟡 <b>Холод {temp}°C.</b> Одевайте питомца, если он мёрзнет.")
+
+    if wind >= 50:
+        alerts.append(f"🌪 <b>Сильный ветер {wind} км/ч!</b> Лучше остаться дома.")
+    elif wind >= 30:
+        alerts.append(f"💨 Ветрено ({wind} км/ч). Мелким питомцам может быть некомфортно.")
+
+    if uv >= 8:
+        alerts.append(
+            f"☀️ <b>UV-индекс {uv}!</b> Избегайте прямого солнца,"
+            " возможен солнечный ожог (особенно для светлых пород)."
+        )
+    elif uv >= 6:
+        alerts.append(f"🌤 UV-индекс {uv}. Гуляйте в тени.")
+
+    if not alerts:
+        return None
+
+    header = f"🌡 <b>Погода сейчас:</b> {temp}°C, {weather['description']}\n\n"
+    return header + "\n".join(alerts)
 
 
 async def _build_weather_response(user_id: int) -> tuple[str | None, str | None]:
@@ -27,7 +68,7 @@ async def _build_weather_response(user_id: int) -> tuple[str | None, str | None]
             "чтобы указать свой город."
         )
 
-    weather = await get_weather(city)
+    weather = await api_client.get_weather(city)
     if not weather:
         return None, (
             f"😕 Не удалось получить погоду для города <b>{escape(city)}</b>.\n\n"
@@ -57,7 +98,7 @@ async def _build_weather_response(user_id: int) -> tuple[str | None, str | None]
             if species in seen_species:
                 continue
             seen_species.add(species)
-            alert = generate_pet_weather_alert(weather, species)
+            alert = _generate_pet_weather_alert(weather, species)
             if alert:
                 species_emoji = pet.get("species_emoji", "🐾")
                 alerts.append(f"\n{species_emoji} <b>Для {escape(species)}:</b>")
