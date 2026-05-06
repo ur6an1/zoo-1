@@ -7,23 +7,8 @@ from html import escape
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
-from sqlalchemy import func, select
-from zoo_shared.db import async_session
-from zoo_shared.db.models import (
-    Allergy,
-    Document,
-    FoodEntry,
-    Pet,
-    Reminder,
-    Vaccination,
-    VetVisit,
-    WaterEntry,
-    WeightRecord,
-)
 
-from backend.backend.services.access import get_owned_pet
-from backend.backend.services.analytics import track_event, track_user_activity
-from backend.backend.services.subscription import can_use_pdf_export, check_pet_limit, get_plan_tier
+from bot import api_client
 from bot.keyboards.keyboards import (
     back_to_menu_kb,
     cancel_kb,
@@ -58,12 +43,8 @@ def _subscription_upgrade_kb() -> InlineKeyboardMarkup:
 @router.message(F.text == "🐾 Мои питомцы")
 async def my_pets(message: Message):
     """Показать список питомцев."""
-    await track_user_activity(message.from_user.id, source="pets")
-    async with async_session() as session:
-        result = await session.execute(
-            select(Pet).where(Pet.user_id == message.from_user.id)
-        )
-        pets = result.scalars().all()
+    await api_client.track_user_activity(message.from_user.id, source="pets")
+    pets = await api_client.list_pets(message.from_user.id)
 
     if not pets:
         await message.answer(
@@ -83,11 +64,7 @@ async def my_pets(message: Message):
 @router.callback_query(F.data == "pet:list")
 async def cb_pet_list(callback: CallbackQuery):
     """Список питомцев (inline)."""
-    async with async_session() as session:
-        result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = result.scalars().all()
+    pets = await api_client.list_pets(callback.from_user.id)
 
     if not pets:
         text = "🐾 У вас пока нет питомцев.\nДобавьте первого! 🎉"
@@ -112,30 +89,28 @@ async def cb_pet_view(callback: CallbackQuery):
     if pet_id is None:
         await callback.answer("Некорректный питомец", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
 
     if not pet:
         await callback.answer("Питомец не найден 😕", show_alert=True)
         return
 
     text = (
-        f"{pet.species_emoji} <b>{escape(pet.name)}</b>\n\n"
-        f"📋 Вид: {escape(pet.species)}\n"
-        f"🐾 Порода: {escape(pet.breed) if pet.breed else 'не указана'}\n"
-        f"📅 Дата рождения: {format_date(pet.birth_date)}\n"
-        f"🎂 Возраст: {pet.age_str()}\n"
-        f"⚖️ Вес: {f'{pet.weight} кг' if pet.weight else 'не указан'}\n"
+        f"{pet['species_emoji']} <b>{escape(pet['name'])}</b>\n\n"
+        f"📋 Вид: {escape(pet['species'])}\n"
+        f"🐾 Порода: {escape(pet['breed']) if pet['breed'] else 'не указана'}\n"
+        f"📅 Дата рождения: {format_date(pet.get('birth_date'))}\n"
+        f"🎂 Возраст: {pet.get('age_str', 'не указан')}\n"
+        f"⚖️ Вес: {str(pet['weight']) + ' кг' if pet.get('weight') else 'не указан'}\n"
     )
 
-    if pet.photo_file_id:
+    if pet.get("photo_file_id"):
         await callback.message.answer_photo(
-            photo=pet.photo_file_id,
+            photo=pet["photo_file_id"],
             caption=text,
             parse_mode="HTML",
-            reply_markup=pet_profile_kb(pet.id),
+            reply_markup=pet_profile_kb(pet["id"]),
         )
-        # Удаляем предыдущее сообщение с кнопками
         try:
             await callback.message.delete()
         except Exception:
@@ -144,7 +119,7 @@ async def cb_pet_view(callback: CallbackQuery):
         await callback.message.edit_text(
             text,
             parse_mode="HTML",
-            reply_markup=pet_profile_kb(pet.id),
+            reply_markup=pet_profile_kb(pet["id"]),
         )
     await callback.answer()
 
@@ -155,9 +130,9 @@ async def cb_pet_view(callback: CallbackQuery):
 @router.callback_query(F.data == "pet:add")
 async def cb_pet_add(callback: CallbackQuery, state: FSMContext):
     """Начало добавления питомца."""
-    allowed, _remaining = await check_pet_limit(callback.from_user.id)
+    allowed, _remaining = await api_client.check_pet_limit(callback.from_user.id)
     if not allowed:
-        plan_tier = await get_plan_tier(callback.from_user.id)
+        plan_tier = await api_client.get_plan_tier(callback.from_user.id)
         current_limit = 5 if plan_tier == "basic" else 2
         await callback.message.edit_text(
             "🔒 <b>Достигнут лимит питомцев</b>\n\n"
@@ -169,7 +144,7 @@ async def cb_pet_add(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Достигнут лимит питомцев", show_alert=True)
         return
 
-    await track_event(callback.from_user.id, "onboarding_started", source="pet_add")
+    await api_client.track_event(callback.from_user.id, "onboarding_started", source="pet_add")
     await state.set_state(PetForm.name)
     await callback.message.edit_text(
         "🐾 <b>Добавление питомца</b>\n\n"
@@ -343,7 +318,7 @@ async def pet_photo_skip(callback: CallbackQuery, state: FSMContext):
 @router.message(PetForm.photo, F.photo)
 async def pet_photo(message: Message, state: FSMContext):
     """Получаем фото."""
-    photo = message.photo[-1]  # Наилучшее качество
+    photo = message.photo[-1]
     await state.update_data(photo_file_id=photo.file_id)
     await _save_pet(message, state, message.from_user.id)
 
@@ -359,7 +334,7 @@ async def pet_photo_invalid(message: Message):
 
 
 async def _save_pet(message: Message, state: FSMContext, user_id: int):
-    """Сохранение питомца в БД."""
+    """Сохранение питомца через backend API."""
     data = await state.get_data()
     await state.clear()
 
@@ -369,7 +344,7 @@ async def _save_pet(message: Message, state: FSMContext, user_id: int):
     if data.get("birth_date"):
         birth_date = date_type.fromisoformat(data["birth_date"])
 
-    pet = Pet(
+    pet = await api_client.create_pet(
         user_id=user_id,
         name=data["name"],
         species=data["species"],
@@ -379,36 +354,30 @@ async def _save_pet(message: Message, state: FSMContext, user_id: int):
         photo_file_id=data.get("photo_file_id"),
     )
 
-    async with async_session() as session:
-        session.add(pet)
-        await session.commit()
-        await session.refresh(pet)
-        pet_count = (
-            await session.execute(select(func.count(Pet.id)).where(Pet.user_id == user_id))
-        ).scalar_one()
+    pet_count = await api_client.get_pet_count(user_id)
 
-    logger.info(f"Питомец '{pet.name}' (id={pet.id}) добавлен пользователем {user_id}")
-    await track_event(user_id, "pet_created", source="pets", payload={"pet_id": pet.id})
+    logger.info("Питомец '%s' (id=%s) добавлен пользователем %s", pet["name"], pet["id"], user_id)
+    await api_client.track_event(user_id, "pet_created", source="pets", payload={"pet_id": pet["id"]})
     if pet_count == 1:
-        await track_event(user_id, "first_value_reached", source="first_pet", payload={"pet_id": pet.id})
+        await api_client.track_event(user_id, "first_value_reached", source="first_pet", payload={"pet_id": pet["id"]})
 
     text = (
         f"🎉 <b>Питомец добавлен!</b>\n\n"
-        f"{pet.species_emoji} <b>{escape(pet.name)}</b>\n"
-        f"📋 Вид: {escape(pet.species)}\n"
-        f"🐾 Порода: {escape(pet.breed) if pet.breed else 'не указана'}\n"
-        f"📅 Дата рождения: {format_date(pet.birth_date)}\n"
-        f"⚖️ Вес: {f'{pet.weight} кг' if pet.weight else 'не указан'}\n"
+        f"{pet['species_emoji']} <b>{escape(pet['name'])}</b>\n"
+        f"📋 Вид: {escape(pet['species'])}\n"
+        f"🐾 Порода: {escape(pet['breed']) if pet['breed'] else 'не указана'}\n"
+        f"📅 Дата рождения: {format_date(pet.get('birth_date'))}\n"
+        f"⚖️ Вес: {str(pet['weight']) + ' кг' if pet.get('weight') else 'не указан'}\n"
     )
 
     await message.answer(
         text,
         parse_mode="HTML",
-        reply_markup=pet_profile_kb(pet.id),
+        reply_markup=pet_profile_kb(pet["id"]),
     )
     await message.answer(
         "Следующий шаг: поставьте первое напоминание или цель по весу, чтобы бот начал приносить регулярную пользу.",
-        reply_markup=post_pet_created_kb(pet.id),
+        reply_markup=post_pet_created_kb(pet["id"]),
     )
 
 
@@ -422,8 +391,7 @@ async def cb_pet_edit(callback: CallbackQuery):
     if pet_id is None:
         await callback.answer("Некорректный питомец", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
@@ -443,8 +411,7 @@ async def cb_edit_field(callback: CallbackQuery, state: FSMContext):
     if not field or pet_id is None:
         await callback.answer("Некорректные параметры", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
@@ -478,13 +445,10 @@ async def edit_name(message: Message, state: FSMContext):
     pet_id = data["edit_pet_id"]
     await state.clear()
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, message.from_user.id, pet_id)
-        if not pet:
-            await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
-            return
-        pet.name = name
-        await session.commit()
+    pet = await api_client.update_pet(pet_id, message.from_user.id, name=name)
+    if not pet:
+        await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
+        return
 
     await message.answer(f"✅ Имя изменено на <b>{escape(name)}</b>", parse_mode="HTML", reply_markup=main_menu_kb)
 
@@ -497,13 +461,10 @@ async def edit_breed(message: Message, state: FSMContext):
     pet_id = data["edit_pet_id"]
     await state.clear()
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, message.from_user.id, pet_id)
-        if not pet:
-            await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
-            return
-        pet.breed = breed
-        await session.commit()
+    pet = await api_client.update_pet(pet_id, message.from_user.id, breed=breed)
+    if not pet:
+        await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
+        return
 
     await message.answer(f"✅ Порода изменена на <b>{escape(breed)}</b>", parse_mode="HTML", reply_markup=main_menu_kb)
 
@@ -519,13 +480,10 @@ async def edit_birth(message: Message, state: FSMContext):
     pet_id = data["edit_pet_id"]
     await state.clear()
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, message.from_user.id, pet_id)
-        if not pet:
-            await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
-            return
-        pet.birth_date = d
-        await session.commit()
+    pet = await api_client.update_pet(pet_id, message.from_user.id, birth_date=d.isoformat())
+    if not pet:
+        await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
+        return
 
     await message.answer(f"✅ Дата рождения: <b>{format_date(d)}</b>", parse_mode="HTML", reply_markup=main_menu_kb)
 
@@ -541,13 +499,10 @@ async def edit_weight(message: Message, state: FSMContext):
     pet_id = data["edit_pet_id"]
     await state.clear()
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, message.from_user.id, pet_id)
-        if not pet:
-            await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
-            return
-        pet.weight = w
-        await session.commit()
+    pet = await api_client.update_pet(pet_id, message.from_user.id, weight=w)
+    if not pet:
+        await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
+        return
 
     await message.answer(f"✅ Вес изменён: <b>{w} кг</b>", parse_mode="HTML", reply_markup=main_menu_kb)
 
@@ -560,13 +515,10 @@ async def edit_photo(message: Message, state: FSMContext):
     pet_id = data["edit_pet_id"]
     await state.clear()
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, message.from_user.id, pet_id)
-        if not pet:
-            await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
-            return
-        pet.photo_file_id = photo.file_id
-        await session.commit()
+    pet = await api_client.update_pet(pet_id, message.from_user.id, photo_file_id=photo.file_id)
+    if not pet:
+        await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
+        return
 
     await message.answer("✅ Фото обновлено!", reply_markup=main_menu_kb)
 
@@ -581,15 +533,13 @@ async def cb_confirm_delete(callback: CallbackQuery):
     if pet_id is None:
         await callback.answer("Некорректный питомец", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
-        if not pet:
-            await callback.answer("Питомец не найден", show_alert=True)
-            return
-        name = pet.name
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
+    if not pet:
+        await callback.answer("Питомец не найден", show_alert=True)
+        return
 
     await callback.message.edit_text(
-        f"⚠️ Вы уверены, что хотите удалить <b>{name}</b>?\n\n"
+        f"⚠️ Вы уверены, что хотите удалить <b>{pet['name']}</b>?\n\n"
         "Все данные питомца (медкарта, напоминания, дневник) будут удалены!",
         parse_mode="HTML",
         reply_markup=confirm_delete_kb(pet_id),
@@ -605,15 +555,13 @@ async def cb_delete_pet(callback: CallbackQuery):
         await callback.answer("Некорректный питомец", show_alert=True)
         return
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
-        if pet:
-            name = pet.name
-            await session.delete(pet)
-            await session.commit()
-            logger.info(f"Питомец '{name}' (id={pet_id}) удалён")
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
+    if pet:
+        deleted = await api_client.delete_pet(pet_id, callback.from_user.id)
+        if deleted:
+            logger.info("Питомец '%s' (id=%s) удалён", pet["name"], pet_id)
             await callback.message.edit_text(
-                f"🗑 Питомец <b>{name}</b> удалён.",
+                f"🗑 Питомец <b>{pet['name']}</b> удалён.",
                 parse_mode="HTML",
                 reply_markup=back_to_menu_kb,
             )
@@ -622,6 +570,11 @@ async def cb_delete_pet(callback: CallbackQuery):
                 "😕 Питомец не найден.",
                 reply_markup=back_to_menu_kb,
             )
+    else:
+        await callback.message.edit_text(
+            "😕 Питомец не найден.",
+            reply_markup=back_to_menu_kb,
+        )
     await callback.answer()
 
 
@@ -638,98 +591,44 @@ async def cb_pet_stats(callback: CallbackQuery):
         await callback.answer("Некорректный питомец", show_alert=True)
         return
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
-        if not pet:
-            await callback.answer("Питомец не найден", show_alert=True)
-            return
+    stats = await api_client.get_pet_stats(pet_id, callback.from_user.id)
+    if not stats:
+        await callback.answer("Питомец не найден", show_alert=True)
+        return
 
-        # Считаем статистику
-        vac_count = (await session.execute(
-            select(func.count(Vaccination.id)).where(Vaccination.pet_id == pet_id)
-        )).scalar() or 0
-
-        visit_count = (await session.execute(
-            select(func.count(VetVisit.id)).where(VetVisit.pet_id == pet_id)
-        )).scalar() or 0
-
-        weight_count = (await session.execute(
-            select(func.count(WeightRecord.id)).where(WeightRecord.pet_id == pet_id)
-        )).scalar() or 0
-
-        food_count = (await session.execute(
-            select(func.count(FoodEntry.id)).where(FoodEntry.pet_id == pet_id)
-        )).scalar() or 0
-
-        water_count = (await session.execute(
-            select(func.count(WaterEntry.id)).where(WaterEntry.pet_id == pet_id)
-        )).scalar() or 0
-
-        allergy_count = (await session.execute(
-            select(func.count(Allergy.id)).where(Allergy.pet_id == pet_id)
-        )).scalar() or 0
-
-        doc_count = (await session.execute(
-            select(func.count(Document.id)).where(Document.pet_id == pet_id)
-        )).scalar() or 0
-
-        reminder_count = (await session.execute(
-            select(func.count(Reminder.id)).where(
-                Reminder.pet_id == pet_id, Reminder.is_active == True  # noqa: E712
-            )
-        )).scalar() or 0
-
-        # Последняя прививка
-        last_vac = (await session.execute(
-            select(Vaccination).where(Vaccination.pet_id == pet_id)
-            .order_by(Vaccination.date_done.desc()).limit(1)
-        )).scalar()
-
-        # Следующая прививка
-        next_vac = (await session.execute(
-            select(Vaccination).where(
-                Vaccination.pet_id == pet_id,
-                Vaccination.next_date != None,  # noqa: E711
-            ).order_by(Vaccination.next_date).limit(1)
-        )).scalar()
-
-        # Последний визит
-        last_visit = (await session.execute(
-            select(VetVisit).where(VetVisit.pet_id == pet_id)
-            .order_by(VetVisit.visit_date.desc()).limit(1)
-        )).scalar()
-
-        # Последний вес
-        last_weight = (await session.execute(
-            select(WeightRecord).where(WeightRecord.pet_id == pet_id)
-            .order_by(WeightRecord.recorded_at.desc()).limit(1)
-        )).scalar()
+    pet = stats["pet"]
+    counts = stats["counts"]
 
     text = (
-        f"📊 <b>Статистика: {pet.species_emoji} {pet.name}</b>\n\n"
+        f"📊 <b>Статистика: {pet['species_emoji']} {pet['name']}</b>\n\n"
         f"📋 <b>Профиль:</b>\n"
-        f"   Вид: {pet.species} | Порода: {pet.breed or '—'}\n"
-        f"   Возраст: {pet.age_str()} | Вес: {f'{pet.weight} кг' if pet.weight else '—'}\n\n"
+        f"   Вид: {pet['species']} | Порода: {pet['breed'] or '—'}\n"
+        f"   Возраст: {pet.get('age_str', '—')} | Вес: {str(pet['weight']) + ' кг' if pet.get('weight') else '—'}\n\n"
         f"📈 <b>Записи:</b>\n"
-        f"   💉 Прививки: {vac_count}\n"
-        f"   🏥 Визиты к ветеринару: {visit_count}\n"
-        f"   ⚖️ Записей веса: {weight_count}\n"
-        f"   🍽 Приёмов пищи: {food_count}\n"
-        f"   💧 Записей воды: {water_count}\n"
-        f"   ⚠️ Аллергии: {allergy_count}\n"
-        f"   📄 Документы: {doc_count}\n"
-        f"   ⏰ Активных напоминаний: {reminder_count}\n\n"
+        f"   💉 Прививки: {counts['vaccinations']}\n"
+        f"   🏥 Визиты к ветеринару: {counts['vet_visits']}\n"
+        f"   ⚖️ Записей веса: {counts['weight_records']}\n"
+        f"   🍽 Приёмов пищи: {counts['food_entries']}\n"
+        f"   💧 Записей воды: {counts['water_entries']}\n"
+        f"   ⚠️ Аллергии: {counts['allergies']}\n"
+        f"   📄 Документы: {counts['documents']}\n"
+        f"   ⏰ Активных напоминаний: {counts['active_reminders']}\n\n"
         f"📅 <b>Важные даты:</b>\n"
     )
 
+    last_vac = stats.get("last_vaccination")
+    next_vac = stats.get("next_vaccination")
+    last_visit = stats.get("last_visit")
+    last_weight = stats.get("last_weight")
+
     if last_vac:
-        text += f"   💉 Последняя прививка: {format_date(last_vac.date_done)} ({last_vac.name})\n"
-    if next_vac and next_vac.next_date:
-        text += f"   💉 Следующая прививка: {format_date(next_vac.next_date)} ({next_vac.name})\n"
+        text += f"   💉 Последняя прививка: {format_date(last_vac['date_done'])} ({last_vac['name']})\n"
+    if next_vac:
+        text += f"   💉 Следующая прививка: {format_date(next_vac['next_date'])} ({next_vac['name']})\n"
     if last_visit:
-        text += f"   🏥 Последний визит: {format_date(last_visit.visit_date)}\n"
+        text += f"   🏥 Последний визит: {format_date(last_visit['visit_date'])}\n"
     if last_weight:
-        text += f"   ⚖️ Последний вес: {last_weight.weight} кг ({format_date(last_weight.recorded_at)})\n"
+        text += f"   ⚖️ Последний вес: {last_weight['weight']} кг ({format_date(last_weight['recorded_at'])})\n"
 
     if not any([last_vac, next_vac, last_visit, last_weight]):
         text += "   Пока нет записей. Начните вести учёт! 📝\n"
@@ -755,67 +654,56 @@ async def cb_pet_export(callback: CallbackQuery):
         await callback.answer("Некорректный питомец", show_alert=True)
         return
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
-        if not pet:
-            await callback.answer("Питомец не найден", show_alert=True)
-            return
+    export = await api_client.get_pet_export(pet_id, callback.from_user.id)
+    if not export:
+        await callback.answer("Питомец не найден", show_alert=True)
+        return
 
-        vaccinations = (await session.execute(
-            select(Vaccination).where(Vaccination.pet_id == pet_id).order_by(Vaccination.date_done.desc())
-        )).scalars().all()
-
-        visits = (await session.execute(
-            select(VetVisit).where(VetVisit.pet_id == pet_id).order_by(VetVisit.visit_date.desc())
-        )).scalars().all()
-
-        weights = (await session.execute(
-            select(WeightRecord).where(WeightRecord.pet_id == pet_id).order_by(WeightRecord.recorded_at.desc())
-        )).scalars().all()
-
-        allergies = (await session.execute(
-            select(Allergy).where(Allergy.pet_id == pet_id)
-        )).scalars().all()
+    pet = export["pet"]
 
     lines = []
     lines.append(f"{'='*50}")
-    lines.append(f"КАРТОЧКА ПИТОМЦА: {pet.name}")
+    lines.append(f"КАРТОЧКА ПИТОМЦА: {pet['name']}")
     lines.append(f"Экспорт: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
     lines.append(f"{'='*50}\n")
 
     lines.append("[ПРОФИЛЬ]")
-    lines.append(f"Имя: {pet.name}")
-    lines.append(f"Вид: {pet.species}")
-    lines.append(f"Порода: {pet.breed or '—'}")
-    lines.append(f"Дата рождения: {format_date(pet.birth_date)}")
-    lines.append(f"Возраст: {pet.age_str()}")
-    lines.append(f"Вес: {f'{pet.weight} кг' if pet.weight else '—'}")
+    lines.append(f"Имя: {pet['name']}")
+    lines.append(f"Вид: {pet['species']}")
+    lines.append(f"Порода: {pet['breed'] or '—'}")
+    lines.append(f"Дата рождения: {format_date(pet.get('birth_date'))}")
+    lines.append(f"Возраст: {pet.get('age_str', '—')}")
+    lines.append(f"Вес: {str(pet['weight']) + ' кг' if pet.get('weight') else '—'}")
 
+    vaccinations = export.get("vaccinations", [])
     if vaccinations:
         lines.append(f"\n[ПРИВИВКИ] ({len(vaccinations)})")
         for v in vaccinations:
-            lines.append(f"  {format_date(v.date_done)} — {v.name} (след.: {format_date(v.next_date)})")
-            if v.notes:
-                lines.append(f"    Заметки: {v.notes}")
+            lines.append(f"  {format_date(v['date_done'])} — {v['name']} (след.: {format_date(v.get('next_date'))})")
+            if v.get("notes"):
+                lines.append(f"    Заметки: {v['notes']}")
 
+    visits = export.get("vet_visits", [])
     if visits:
         lines.append(f"\n[ВИЗИТЫ К ВЕТЕРИНАРУ] ({len(visits)})")
         for v in visits:
-            lines.append(f"  {format_date(v.visit_date)}")
-            if v.diagnosis:
-                lines.append(f"    Диагноз: {v.diagnosis}")
-            if v.treatment:
-                lines.append(f"    Лечение: {v.treatment}")
+            lines.append(f"  {format_date(v['visit_date'])}")
+            if v.get("diagnosis"):
+                lines.append(f"    Диагноз: {v['diagnosis']}")
+            if v.get("treatment"):
+                lines.append(f"    Лечение: {v['treatment']}")
 
+    weights = export.get("weight_records", [])
     if weights:
         lines.append(f"\n[ИСТОРИЯ ВЕСА] ({len(weights)})")
         for w in weights:
-            lines.append(f"  {format_date(w.recorded_at)} — {w.weight} кг")
+            lines.append(f"  {format_date(w['recorded_at'])} — {w['weight']} кг")
 
+    allergies = export.get("allergies", [])
     if allergies:
         lines.append(f"\n[АЛЛЕРГИИ] ({len(allergies)})")
         for a in allergies:
-            lines.append(f"  {a.allergen} — {a.reaction or '—'}")
+            lines.append(f"  {a['allergen']} — {a.get('reaction') or '—'}")
 
     lines.append(f"\n{'='*50}")
     lines.append("Сгенерировано ботом ZooBuddy")
@@ -823,12 +711,12 @@ async def cb_pet_export(callback: CallbackQuery):
     content = "\n".join(lines)
     file = BufferedInputFile(
         content.encode("utf-8"),
-        filename=f"{pet.name}_карточка.txt",
+        filename=f"{pet['name']}_карточка.txt",
     )
 
     await callback.message.answer_document(
         document=file,
-        caption=f"📤 Карточка питомца <b>{pet.name}</b>",
+        caption=f"📤 Карточка питомца <b>{pet['name']}</b>",
         parse_mode="HTML",
     )
     await callback.answer("Экспорт готов! ✅")
@@ -842,7 +730,7 @@ async def cb_pet_export(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("pet:export_pdf:"))
 async def cb_pet_export_pdf(callback: CallbackQuery):
     """Экспорт данных питомца в PDF."""
-    if not await can_use_pdf_export(callback.from_user.id):
+    if not await api_client.can_use_pdf_export(callback.from_user.id):
         await callback.message.answer(
             "🔒 <b>PDF-экспорт доступен только в тарифе PRO.</b>\n\n"
             "Подключите или повысьте подписку, чтобы скачать PDF-карточку.",
@@ -857,61 +745,50 @@ async def cb_pet_export_pdf(callback: CallbackQuery):
         await callback.answer("Некорректный питомец", show_alert=True)
         return
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
-        if not pet:
-            await callback.answer("Питомец не найден", show_alert=True)
-            return
+    export = await api_client.get_pet_export(pet_id, callback.from_user.id)
+    if not export:
+        await callback.answer("Питомец не найден", show_alert=True)
+        return
 
-        vaccinations = (await session.execute(
-            select(Vaccination).where(Vaccination.pet_id == pet_id).order_by(Vaccination.date_done.desc())
-        )).scalars().all()
+    pet = export["pet"]
 
-        visits = (await session.execute(
-            select(VetVisit).where(VetVisit.pet_id == pet_id).order_by(VetVisit.visit_date.desc())
-        )).scalars().all()
-
-        weights = (await session.execute(
-            select(WeightRecord).where(WeightRecord.pet_id == pet_id).order_by(WeightRecord.recorded_at.desc())
-        )).scalars().all()
-
-        allergies = (await session.execute(
-            select(Allergy).where(Allergy.pet_id == pet_id)
-        )).scalars().all()
-
-    from services.pdf_export import generate_pet_pdf
+    from backend.backend.services.pdf_export import generate_pet_pdf
 
     pet_data = {
-        "name": pet.name,
-        "species": pet.species,
-        "breed": pet.breed or "",
-        "birth_date": format_date(pet.birth_date),
-        "age": pet.age_str(),
-        "weight": pet.weight,
-        "target_weight": pet.target_weight,
+        "name": pet["name"],
+        "species": pet["species"],
+        "breed": pet.get("breed", ""),
+        "birth_date": format_date(pet.get("birth_date")),
+        "age": pet.get("age_str", ""),
+        "weight": pet.get("weight"),
+        "target_weight": pet.get("target_weight"),
     }
 
-    vac_data = [{"name": v.name, "date_done": format_date(v.date_done),
-                 "next_date": format_date(v.next_date), "notes": v.notes} for v in vaccinations]
-    visit_data = [{"visit_date": format_date(v.visit_date), "diagnosis": v.diagnosis,
-                   "treatment": v.treatment} for v in visits]
-    weight_data = [{"weight": w.weight, "recorded_at": format_date(w.recorded_at)} for w in weights]
-    allergy_data = [{"allergen": a.allergen, "reaction": a.reaction} for a in allergies]
+    vac_data = [{"name": v["name"], "date_done": format_date(v["date_done"]),
+                 "next_date": format_date(v.get("next_date")), "notes": v.get("notes", "")}
+                for v in export.get("vaccinations", [])]
+    visit_data = [{"visit_date": format_date(v["visit_date"]), "diagnosis": v.get("diagnosis", ""),
+                   "treatment": v.get("treatment", "")}
+                  for v in export.get("vet_visits", [])]
+    weight_data = [{"weight": w["weight"], "recorded_at": format_date(w["recorded_at"])}
+                   for w in export.get("weight_records", [])]
+    allergy_data = [{"allergen": a["allergen"], "reaction": a.get("reaction", "")}
+                    for a in export.get("allergies", [])]
 
     pdf_bytes = generate_pet_pdf(pet_data, vac_data, visit_data, weight_data, allergy_data)
 
     if pdf_bytes:
-        file = BufferedInputFile(pdf_bytes, filename=f"{pet.name}_карточка.pdf")
+        file = BufferedInputFile(pdf_bytes, filename=f"{pet['name']}_карточка.pdf")
         await callback.message.answer_document(
             document=file,
-            caption=f"📄 PDF-карточка питомца <b>{pet.name}</b>",
+            caption=f"📄 PDF-карточка питомца <b>{pet['name']}</b>",
             parse_mode="HTML",
         )
-        await track_event(
+        await api_client.track_event(
             callback.from_user.id,
             "premium_feature_used",
             source="pdf_export",
-            payload={"pet_id": pet.id},
+            payload={"pet_id": pet["id"]},
         )
         await callback.answer("PDF готов! ✅")
     else:

@@ -6,14 +6,9 @@ from html import escape
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
-from sqlalchemy import select
-from zoo_shared.db import async_session
-from zoo_shared.db.models import Pet, VoiceNote
 
-from backend.backend.services.access import get_owned_pet
-from backend.backend.services.analytics import track_event, track_user_activity
-from backend.backend.services.subscription import can_use_voice_notes
 from backend.backend.services.vision import transcribe_voice
+from bot import api_client
 from bot.keyboards.keyboards import add_pet_cta_kb, back_to_menu_kb, cancel_kb, pets_list_kb
 from bot.states.states import VoiceNoteForm
 from bot.utils.helpers import callback_int
@@ -52,9 +47,10 @@ def _voice_menu_kb() -> InlineKeyboardMarkup:
 async def voice_menu(message: Message, state: FSMContext):
     """Меню голосовых заметок."""
     await state.clear()
-    await track_user_activity(message.from_user.id, source="voice")
+    await api_client.track_user_activity(message.from_user.id, source="voice")
 
-    if not await can_use_voice_notes(message.from_user.id):
+    can_voice = await api_client.check_feature_permission(message.from_user.id, "voice_notes")
+    if not can_voice:
         await message.answer(
             "🔒 <b>Голосовые заметки доступны только в тарифе PRO.</b>\n\n"
             "Подключите или повысьте подписку, чтобы сохранять голосовые наблюдения.",
@@ -63,7 +59,7 @@ async def voice_menu(message: Message, state: FSMContext):
         )
         return
 
-    await track_event(message.from_user.id, "premium_feature_used", source="voice_menu")
+    await api_client.track_event(message.from_user.id, "premium_feature_used", source="voice_menu")
     await message.answer(VOICE_MENU_TEXT, parse_mode="HTML", reply_markup=_voice_menu_kb())
 
 
@@ -72,7 +68,8 @@ async def cb_voice_menu(callback: CallbackQuery, state: FSMContext):
     """Возврат в меню голосовых."""
     await state.clear()
 
-    if not await can_use_voice_notes(callback.from_user.id):
+    can_voice = await api_client.check_feature_permission(callback.from_user.id, "voice_notes")
+    if not can_voice:
         await callback.message.edit_text(
             "🔒 <b>Голосовые заметки доступны только в тарифе PRO.</b>",
             parse_mode="HTML",
@@ -81,7 +78,7 @@ async def cb_voice_menu(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Доступно только в PRO", show_alert=True)
         return
 
-    await track_event(callback.from_user.id, "premium_feature_used", source="voice_menu")
+    await api_client.track_event(callback.from_user.id, "premium_feature_used", source="voice_menu")
     await callback.message.edit_text(VOICE_MENU_TEXT, parse_mode="HTML", reply_markup=_voice_menu_kb())
     await callback.answer()
 
@@ -89,7 +86,8 @@ async def cb_voice_menu(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "voice:add")
 async def cb_voice_add(callback: CallbackQuery, state: FSMContext):
     """Начало добавления — выбор питомца."""
-    if not await can_use_voice_notes(callback.from_user.id):
+    can_voice = await api_client.check_feature_permission(callback.from_user.id, "voice_notes")
+    if not can_voice:
         await callback.message.edit_text(
             "🔒 <b>Голосовые заметки доступны только в тарифе PRO.</b>",
             parse_mode="HTML",
@@ -98,11 +96,7 @@ async def cb_voice_add(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Доступно только в PRO", show_alert=True)
         return
 
-    async with async_session() as session:
-        result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = result.scalars().all()
+    pets = await api_client.list_pets(callback.from_user.id)
 
     if not pets:
         await callback.message.edit_text(
@@ -129,8 +123,7 @@ async def cb_voice_pet(callback: CallbackQuery, state: FSMContext):
     if pet_id is None:
         await callback.answer("Некорректный питомец", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
@@ -178,22 +171,18 @@ async def voice_received(message: Message, state: FSMContext, bot: Bot):
 
     await state.clear()
 
-    note = VoiceNote(
+    result = await api_client.create_voice_note(
         pet_id=pet_id,
         user_id=message.from_user.id,
         file_id=message.voice.file_id,
         transcription=transcription,
     )
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, message.from_user.id, pet_id)
-        if not pet:
-            await processing_msg.edit_text("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
-            return
-        session.add(note)
-        await session.commit()
+    if not result:
+        await processing_msg.edit_text("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
+        return
 
-    pet_name = pet.name if pet else "—"
+    pet_name = result.get("pet_name", "—")
     text_preview = transcription[:300] if transcription else "транскрипция недоступна"
 
     await processing_msg.edit_text(
@@ -203,7 +192,10 @@ async def voice_received(message: Message, state: FSMContext, bot: Bot):
         parse_mode="HTML",
         reply_markup=back_to_menu_kb,
     )
-    await track_event(message.from_user.id, "premium_feature_used", source="voice_note", payload={"pet_id": pet_id})
+    await api_client.track_event(
+        message.from_user.id, "premium_feature_used",
+        source="voice_note", payload={"pet_id": pet_id},
+    )
 
 
 @router.message(VoiceNoteForm.waiting_voice)
@@ -220,7 +212,8 @@ async def voice_not_voice(message: Message):
 @router.callback_query(F.data == "voice:list")
 async def cb_voice_list(callback: CallbackQuery):
     """Последние 10 голосовых заметок."""
-    if not await can_use_voice_notes(callback.from_user.id):
+    can_voice = await api_client.check_feature_permission(callback.from_user.id, "voice_notes")
+    if not can_voice:
         await callback.message.edit_text(
             "🔒 <b>Голосовые заметки доступны только в тарифе PRO.</b>",
             parse_mode="HTML",
@@ -230,28 +223,7 @@ async def cb_voice_list(callback: CallbackQuery):
         return
 
     try:
-        async with async_session() as session:
-            pets_result = await session.execute(
-                select(Pet).where(Pet.user_id == callback.from_user.id)
-            )
-            pets = pets_result.scalars().all()
-            pet_ids = [p.id for p in pets]
-
-            if not pet_ids:
-                await callback.message.edit_text(
-                    "😕 Нет питомцев.",
-                    reply_markup=back_to_menu_kb,
-                )
-                await callback.answer()
-                return
-
-            result = await session.execute(
-                select(VoiceNote)
-                .where(VoiceNote.pet_id.in_(pet_ids))
-                .order_by(VoiceNote.created_at.desc())
-                .limit(10)
-            )
-            notes = result.scalars().all()
+        notes = await api_client.list_voice_notes(callback.from_user.id)
 
         if not notes:
             await callback.message.edit_text(
@@ -259,14 +231,13 @@ async def cb_voice_list(callback: CallbackQuery):
                 reply_markup=back_to_menu_kb,
             )
         else:
-            pet_map = {p.id: p for p in pets}
             lines = [f"🎙 <b>Голосовые заметки</b> (последние {len(notes)})\n"]
 
             for n in notes:
-                pet = pet_map.get(n.pet_id)
-                pet_label = f"{pet.species_emoji} {pet.name}" if pet else "?"
-                dt = n.created_at.strftime("%d.%m.%Y %H:%M") if n.created_at else "—"
-                preview = n.transcription[:80] + "..." if len(n.transcription) > 80 else n.transcription
+                pet_label = n.get("pet_label", "?")
+                dt = n.get("created_at_str", "—")
+                transcription = n.get("transcription", "")
+                preview = transcription[:80] + "..." if len(transcription) > 80 else transcription
                 if not preview:
                     preview = "без текста"
                 lines.append(

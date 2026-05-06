@@ -7,13 +7,8 @@ from html import escape
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
-from zoo_shared.db import async_session
-from zoo_shared.db.models import Pet, Reminder
 
-from backend.backend.services.access import get_owned_pet, get_owned_reminder
-from backend.backend.services.analytics import track_user_activity
-from backend.backend.services.scheduler import remove_reminder_job, schedule_reminder
+from bot import api_client
 from bot.keyboards.keyboards import (
     add_pet_cta_kb,
     back_to_menu_kb,
@@ -38,7 +33,7 @@ router = Router(name="reminders")
 @router.message(F.text == "⏰ Напоминания")
 async def reminders_menu(message: Message):
     """Меню напоминаний."""
-    await track_user_activity(message.from_user.id, source="reminders")
+    await api_client.track_user_activity(message.from_user.id, source="reminders")
     await message.answer(
         "⏰ <b>Напоминания</b>\n\nЧто хотите сделать?",
         parse_mode="HTML",
@@ -48,6 +43,7 @@ async def reminders_menu(message: Message):
 
 @router.callback_query(F.data == "reminder:menu")
 async def cb_reminders_menu(callback: CallbackQuery):
+    """Inline-меню напоминаний."""
     await callback.message.edit_text(
         "⏰ <b>Напоминания</b>\n\nЧто хотите сделать?",
         parse_mode="HTML",
@@ -56,21 +52,17 @@ async def cb_reminders_menu(callback: CallbackQuery):
     await callback.answer()
 
 
-# ──────────────────── ДОБАВЛЕНИЕ НАПОМИНАНИЯ ────────────────────
+# ──────────────────── ДОБАВЛЕНИЕ ────────────────────
 
 
 @router.callback_query(F.data == "reminder:add")
 async def cb_reminder_add(callback: CallbackQuery, state: FSMContext):
     """Начало добавления напоминания — выбор питомца."""
-    async with async_session() as session:
-        result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = result.scalars().all()
+    pets = await api_client.list_pets(callback.from_user.id)
 
     if not pets:
         await callback.message.edit_text(
-            "😕 У вас нет питомцев.\nСначала добавьте питомца в разделе 🐾 Мои питомцы.",
+            "😕 Сначала добавьте питомца, чтобы создать напоминание.",
             reply_markup=add_pet_cta_kb,
         )
         await callback.answer()
@@ -87,55 +79,42 @@ async def cb_reminder_add(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(ReminderForm.choosing_pet, F.data.startswith("pet:select_reminder:"))
 async def cb_reminder_pet(callback: CallbackQuery, state: FSMContext):
-    """Выбран питомец для напоминания."""
+    """Выбор питомца для напоминания."""
     pet_id = callback_int(callback.data, 2)
     if pet_id is None:
         await callback.answer("Некорректный питомец", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
+
     await state.update_data(pet_id=pet_id)
     await state.set_state(ReminderForm.category)
     await callback.message.edit_text(
-        "Выберите тип напоминания:",
+        f"🐾 Питомец: <b>{pet['name']}</b>\n\nВыберите категорию напоминания:",
+        parse_mode="HTML",
         reply_markup=reminder_category_kb,
     )
     await callback.answer()
 
 
-@router.callback_query(F.data == "reminder:cancel")
-async def cb_reminder_cancel(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.message.edit_text(
-        "❌ Создание напоминания отменено.",
-        reply_markup=back_to_menu_kb,
-    )
-    await callback.answer()
-
-
 @router.callback_query(ReminderForm.category, F.data.startswith("rem_cat:"))
-async def cb_reminder_category(callback: CallbackQuery, state: FSMContext):
-    """Выбрана категория."""
+async def reminder_category(callback: CallbackQuery, state: FSMContext):
+    """Выбор категории напоминания."""
     category = callback.data.split(":")[1]
+    cat_names = {
+        "feeding": "Кормление 🍽",
+        "vaccine": "Прививка 💉",
+        "vet": "Ветеринар 🏥",
+        "grooming": "Груминг ✂️",
+        "custom": "Своё 📌",
+    }
     await state.update_data(category=category)
     await state.set_state(ReminderForm.title)
-
-    category_names = {
-        "feeding": "🍽 Кормление",
-        "vaccine": "💉 Прививка",
-        "vet": "🏥 Ветеринар",
-        "grooming": "✂️ Груминг",
-        "custom": "📌 Своё",
-    }
-    name = category_names.get(category, category)
-
     await callback.message.edit_text(
-        f"Тип: <b>{name}</b> ✅\n\n"
-        "Введите название напоминания\n"
-        "(например: «Утреннее кормление» или «Прививка от бешенства»):",
+        f"Категория: <b>{cat_names.get(category, category)}</b> ✅\n\n"
+        "Введите название напоминания:",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -227,27 +206,15 @@ async def reminder_repeat(callback: CallbackQuery, state: FSMContext):
     d = date_type.fromisoformat(data["date"])
     remind_at = datetime(d.year, d.month, d.day, data["hour"], data["minute"])
 
-    reminder = Reminder(
-        pet_id=data["pet_id"],
+    await api_client.create_reminder(
         user_id=callback.from_user.id,
-        category=data["category"],
+        pet_id=data["pet_id"],
         title=data["title"],
         description=data.get("description", ""),
+        category=data["category"],
         remind_at=remind_at,
         repeat=repeat,
-        is_active=True,
     )
-
-    async with async_session() as session:
-        session.add(reminder)
-        await session.commit()
-        await session.refresh(reminder)
-        # Подгружаем связь с питомцем
-        pet = await session.get(Pet, reminder.pet_id)
-
-    # Планируем в APScheduler
-    reminder.pet = pet
-    schedule_reminder(reminder)
 
     repeat_texts = {
         "once": "разово",
@@ -257,12 +224,13 @@ async def reminder_repeat(callback: CallbackQuery, state: FSMContext):
         "yearly": "ежегодно",
     }
 
-    pet_name = pet.name if pet else "—"
+    pet = await api_client.get_pet(data["pet_id"], callback.from_user.id)
+    pet_name = pet["name"] if pet else "—"
 
     await callback.message.edit_text(
         f"✅ <b>Напоминание создано!</b>\n\n"
         f"🐾 Питомец: {escape(pet_name)}\n"
-        f"{reminder.category_emoji} {escape(reminder.title)}\n"
+        f"📌 {escape(data['title'])}\n"
         f"📅 Дата: {d.strftime('%d.%m.%Y')}\n"
         f"⏰ Время: {data['hour']:02d}:{data['minute']:02d}\n"
         f"🔄 Повтор: {repeat_texts.get(repeat, repeat)}",
@@ -277,14 +245,8 @@ async def reminder_repeat(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "reminder:list")
 async def cb_reminder_list(callback: CallbackQuery):
-    """Список напоминаний пользователя (активные + приостановленные)."""
-    async with async_session() as session:
-        result = await session.execute(
-            select(Reminder)
-            .where(Reminder.user_id == callback.from_user.id)
-            .order_by(Reminder.is_active.desc(), Reminder.remind_at)
-        )
-        reminders = result.scalars().all()
+    """Список напоминаний пользователя."""
+    reminders = await api_client.list_reminders(callback.from_user.id)
 
     if not reminders:
         await callback.message.edit_text(
@@ -292,7 +254,7 @@ async def cb_reminder_list(callback: CallbackQuery):
             reply_markup=reminders_menu_kb,
         )
     else:
-        active = sum(1 for r in reminders if r.is_active)
+        active = sum(1 for r in reminders if r.get("is_active", True))
         paused = len(reminders) - active
         status_text = f"✅ Активных: {active}"
         if paused:
@@ -312,28 +274,26 @@ async def cb_reminder_view(callback: CallbackQuery):
     if rem_id is None:
         await callback.answer("Некорректное напоминание", show_alert=True)
         return
-    async with async_session() as session:
-        reminder = await get_owned_reminder(session, callback.from_user.id, rem_id)
-        if not reminder:
-            await callback.answer("Напоминание не найдено", show_alert=True)
-            return
-        pet = await session.get(Pet, reminder.pet_id)
+    reminder = await api_client.get_reminder(rem_id, callback.from_user.id)
+    if not reminder:
+        await callback.answer("Напоминание не найдено", show_alert=True)
+        return
 
-    pet_name = pet.name if pet else "—"
+    pet_name = reminder.get("pet_name", "—")
     text = (
-        f"{reminder.category_emoji} <b>{escape(reminder.title)}</b>\n\n"
+        f"{reminder.get('category_emoji', '⏰')} <b>{escape(reminder['title'])}</b>\n\n"
         f"🐾 Питомец: {escape(pet_name)}\n"
-        f"📅 Дата/время: {format_datetime(reminder.remind_at)}\n"
-        f"🔄 Повтор: {reminder.repeat_text}\n"
+        f"📅 Дата/время: {format_datetime(reminder.get('remind_at', ''))}\n"
+        f"🔄 Повтор: {reminder.get('repeat_text', reminder.get('repeat', ''))}\n"
     )
-    if reminder.description:
-        text += f"📝 Описание: {escape(reminder.description)}\n"
-    text += f"\n{'✅ Активно' if reminder.is_active else '⏸ Приостановлено'}"
+    if reminder.get("description"):
+        text += f"📝 Описание: {escape(reminder['description'])}\n"
+    text += f"\n{'✅ Активно' if reminder.get('is_active', True) else '⏸ Приостановлено'}"
 
     await callback.message.edit_text(
         text,
         parse_mode="HTML",
-        reply_markup=reminder_detail_kb(rem_id, is_active=reminder.is_active),
+        reply_markup=reminder_detail_kb(rem_id, is_active=reminder.get("is_active", True)),
     )
     await callback.answer()
 
@@ -346,17 +306,13 @@ async def cb_reminder_pause(callback: CallbackQuery):
         await callback.answer("Некорректное напоминание", show_alert=True)
         return
 
-    async with async_session() as session:
-        reminder = await get_owned_reminder(session, callback.from_user.id, rem_id)
-        if not reminder:
-            await callback.answer("Напоминание не найдено", show_alert=True)
-            return
-        reminder.is_active = False
-        await session.commit()
-        remove_reminder_job(reminder.id)
+    result = await api_client.pause_reminder(rem_id, callback.from_user.id)
+    if not result:
+        await callback.answer("Напоминание не найдено", show_alert=True)
+        return
 
     await callback.message.edit_text(
-        f"⏸ Напоминание <b>{escape(reminder.title)}</b> приостановлено.\n"
+        f"⏸ Напоминание <b>{escape(result['title'])}</b> приостановлено.\n"
         "Вы можете возобновить его в любое время.",
         parse_mode="HTML",
         reply_markup=reminder_detail_kb(rem_id, is_active=False),
@@ -372,19 +328,13 @@ async def cb_reminder_resume(callback: CallbackQuery):
         await callback.answer("Некорректное напоминание", show_alert=True)
         return
 
-    async with async_session() as session:
-        reminder = await get_owned_reminder(session, callback.from_user.id, rem_id)
-        if not reminder:
-            await callback.answer("Напоминание не найдено", show_alert=True)
-            return
-        reminder.is_active = True
-        await session.commit()
-        pet = await get_owned_pet(session, callback.from_user.id, reminder.pet_id)
-        reminder.pet = pet
-        schedule_reminder(reminder)
+    result = await api_client.resume_reminder(rem_id, callback.from_user.id)
+    if not result:
+        await callback.answer("Напоминание не найдено", show_alert=True)
+        return
 
     await callback.message.edit_text(
-        f"▶️ Напоминание <b>{escape(reminder.title)}</b> возобновлено!",
+        f"▶️ Напоминание <b>{escape(result['title'])}</b> возобновлено!",
         parse_mode="HTML",
         reply_markup=reminder_detail_kb(rem_id, is_active=True),
     )
@@ -399,17 +349,24 @@ async def cb_reminder_delete(callback: CallbackQuery):
         await callback.answer("Некорректное напоминание", show_alert=True)
         return
 
-    async with async_session() as session:
-        reminder = await get_owned_reminder(session, callback.from_user.id, rem_id)
-        if not reminder:
-            await callback.answer("Напоминание не найдено", show_alert=True)
-            return
-        remove_reminder_job(reminder.id)
-        await session.delete(reminder)
-        await session.commit()
+    deleted = await api_client.delete_reminder(rem_id, callback.from_user.id)
+    if not deleted:
+        await callback.answer("Напоминание не найдено", show_alert=True)
+        return
 
     await callback.message.edit_text(
         "🗑 Напоминание удалено.",
         reply_markup=back_to_menu_kb,
     )
     await callback.answer("Удалено ✅")
+
+
+@router.callback_query(F.data == "reminder:cancel")
+async def cb_reminder_cancel(callback: CallbackQuery, state: FSMContext):
+    """Отмена создания напоминания."""
+    await state.clear()
+    await callback.message.edit_text(
+        "❌ Создание напоминания отменено.",
+        reply_markup=reminders_menu_kb,
+    )
+    await callback.answer()

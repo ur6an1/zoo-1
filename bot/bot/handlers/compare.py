@@ -8,9 +8,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from zoo_shared.config import get_settings
 
-from backend.backend.services.provider_health import is_ai_operational
-from backend.backend.services.subscription import check_ai_limit, refund_ai_limit
 from backend.backend.services.vision import compare_two_foods
+from bot import api_client
 from bot.keyboards.keyboards import back_to_menu_kb, cancel_kb, photo_menu_kb
 from bot.states.states import CompareForm
 
@@ -45,7 +44,8 @@ def _ai_upgrade_kb() -> InlineKeyboardMarkup:
 @router.callback_query(F.data == "photo:compare")
 async def cb_compare_start(callback: CallbackQuery, state: FSMContext):
     """Начало сравнения — запрос первого фото."""
-    if not await is_ai_operational():
+    ai_ok = await api_client.is_ai_operational()
+    if not ai_ok:
         await callback.message.edit_text(
             _no_ai_message(),
             parse_mode="HTML",
@@ -129,15 +129,13 @@ async def compare_photo_2(message: Message, state: FSMContext, bot: Bot):
         )
         return
 
-    if not await is_ai_operational():
-        await message.answer(
-            _no_ai_message(),
-            reply_markup=photo_menu_kb,
-        )
+    ai_ok = await api_client.is_ai_operational()
+    if not ai_ok:
+        await message.answer(_no_ai_message(), reply_markup=photo_menu_kb)
         return
 
-    allowed, _remaining = await check_ai_limit(message.from_user.id)
-    if not allowed:
+    can_use, _remaining = await api_client.check_ai_limit(message.from_user.id)
+    if not can_use:
         await message.answer(_ai_limit_message(), reply_markup=_ai_upgrade_kb())
         return
 
@@ -164,7 +162,7 @@ async def compare_photo_2(message: Message, state: FSMContext, bot: Bot):
             reply_markup=photo_menu_kb,
         )
     else:
-        await refund_ai_limit(message.from_user.id)
+        await api_client.refund_ai_limit(message.from_user.id)
         await processing_msg.edit_text(
             "😕 AI-сервис временно недоступен или не смог обработать фото.\n"
             "Попробуйте позже.",

@@ -5,11 +5,10 @@ from html import escape
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
-from zoo_shared.db import async_session
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from backend.backend.services.access import get_owned_pet
 from backend.backend.services.norms import weight_progress
+from bot import api_client
 from bot.keyboards.keyboards import back_to_menu_kb, cancel_kb
 from bot.states.states import WeightGoalForm
 from bot.utils.helpers import callback_int, parse_weight
@@ -31,42 +30,39 @@ async def cb_weight_goal(callback: CallbackQuery):
         await callback.answer("Некорректный питомец", show_alert=True)
         return
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
-
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
 
+    species_emoji = pet.get("species_emoji", "🐾")
+    weight = pet.get("weight")
+    target_weight = pet.get("target_weight")
+    weight_str = f"{weight} кг" if weight else "не указан"
+    target_str = f"{target_weight} кг" if target_weight else "не установлен"
+
     lines = [
-        f"🎯 <b>Целевой вес — {pet.species_emoji} {escape(pet.name)}</b>\n",
-        f"⚖️ Текущий вес: <b>{f'{pet.weight} кг' if pet.weight else 'не указан'}</b>",
-        f"🎯 Целевой вес: <b>{f'{pet.target_weight} кг' if pet.target_weight else 'не установлен'}</b>",
+        f"🎯 <b>Целевой вес — {species_emoji} {escape(pet['name'])}</b>\n",
+        f"⚖️ Текущий вес: <b>{weight_str}</b>",
+        f"🎯 Целевой вес: <b>{target_str}</b>",
     ]
 
-    progress = weight_progress(pet.weight, pet.target_weight)
+    progress = weight_progress(weight, target_weight)
     if progress:
         lines.append(f"\n📊 {progress}")
 
-    # Проверяем, достигнута ли цель
-    if (
-        pet.weight
-        and pet.target_weight
-        and abs(pet.weight - pet.target_weight) < 0.1
-    ):
+    if weight and target_weight and abs(weight - target_weight) < 0.1:
         lines.append("\n🎉 <b>Поздравляем! Целевой вес достигнут!</b>")
-
-    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(
                 text="🎯 Установить цель",
-                callback_data=f"weight_goal:set:{pet.id}",
+                callback_data=f"weight_goal:set:{pet_id}",
             )],
             [InlineKeyboardButton(
                 text="◀️ К профилю",
-                callback_data=f"pet:view:{pet.id}",
+                callback_data=f"pet:view:{pet_id}",
             )],
         ]
     )
@@ -92,9 +88,7 @@ async def cb_weight_goal_set(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Некорректный питомец", show_alert=True)
         return
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
-
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
@@ -102,9 +96,12 @@ async def cb_weight_goal_set(callback: CallbackQuery, state: FSMContext):
     await state.set_state(WeightGoalForm.target)
     await state.update_data(goal_pet_id=pet_id)
 
+    species_emoji = pet.get("species_emoji", "🐾")
+    weight_str = f"{pet['weight']} кг" if pet.get("weight") else "не указан"
+
     await callback.message.edit_text(
-        f"🎯 <b>Установка целевого веса для {pet.species_emoji} {escape(pet.name)}</b>\n\n"
-        f"Текущий вес: <b>{f'{pet.weight} кг' if pet.weight else 'не указан'}</b>\n\n"
+        f"🎯 <b>Установка целевого веса для {species_emoji} {escape(pet['name'])}</b>\n\n"
+        f"Текущий вес: <b>{weight_str}</b>\n\n"
         f"Введите желаемый вес в кг (например: <b>4.5</b>):",
         parse_mode="HTML",
         reply_markup=cancel_kb,
@@ -133,26 +130,26 @@ async def weight_goal_target_value(message: Message, state: FSMContext):
         return
 
     try:
-        async with async_session() as session:
-            pet = await get_owned_pet(session, message.from_user.id, pet_id)
-            if not pet:
-                await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
-                return
+        updated = await api_client.update_pet(pet_id, message.from_user.id, target_weight=target)
+        if not updated:
+            await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
+            return
 
-            pet.target_weight = target
-            await session.commit()
+        weight = updated.get("weight")
+        species_emoji = updated.get("species_emoji", "🐾")
+        pet_name = updated.get("name", "")
 
-        progress = weight_progress(pet.weight, target)
+        progress = weight_progress(weight, target)
         lines = [
             "✅ <b>Целевой вес установлен!</b>\n",
-            f"{pet.species_emoji} {escape(pet.name)}",
-            f"⚖️ Текущий вес: <b>{f'{pet.weight} кг' if pet.weight else 'не указан'}</b>",
+            f"{species_emoji} {escape(pet_name)}",
+            f"⚖️ Текущий вес: <b>{f'{weight} кг' if weight else 'не указан'}</b>",
             f"🎯 Цель: <b>{target} кг</b>",
         ]
         if progress:
             lines.append(f"\n📊 {progress}")
 
-        if pet.weight and abs(pet.weight - target) < 0.1:
+        if weight and abs(weight - target) < 0.1:
             lines.append("\n🎉 <b>Ура! Цель уже достигнута!</b>")
 
         await message.answer(

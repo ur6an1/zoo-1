@@ -77,11 +77,18 @@ settings_hub_kb = InlineKeyboardMarkup(
 # ──────────────────── ПИТОМЦЫ ────────────────────
 
 
+def _get(obj, key, default=""):
+    """Access attribute or dict key transparently."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
 def pets_list_kb(pets: list, action: str = "view") -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for pet in pets:
-        emoji = getattr(pet, "species_emoji", "🐾")
-        builder.button(text=f"{emoji} {pet.name}", callback_data=f"pet:{action}:{pet.id}")
+        emoji = _get(pet, "species_emoji", "🐾")
+        builder.button(text=f"{emoji} {_get(pet, 'name')}", callback_data=f"pet:{action}:{_get(pet, 'id')}")
     builder.adjust(1)
     if action == "view":
         builder.row(InlineKeyboardButton(text="➕ Добавить питомца", callback_data="pet:add"))
@@ -176,9 +183,9 @@ reminder_repeat_kb = InlineKeyboardMarkup(
 def reminders_list_kb(reminders: list) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for rem in reminders:
-        emoji = getattr(rem, "category_emoji", "⏰")
-        status = "" if rem.is_active else " ⏸"
-        builder.button(text=f"{emoji} {rem.title}{status}", callback_data=f"reminder:view:{rem.id}")
+        emoji = _get(rem, "category_emoji", "⏰")
+        status = "" if _get(rem, "is_active", True) else " ⏸"
+        builder.button(text=f"{emoji} {_get(rem, 'title')}{status}", callback_data=f"reminder:view:{_get(rem, 'id')}")
     builder.adjust(1)
     builder.row(InlineKeyboardButton(text="◀️ Назад", callback_data="reminder:menu"))
     return builder.as_markup()

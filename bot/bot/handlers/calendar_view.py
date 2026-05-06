@@ -5,10 +5,8 @@ from datetime import datetime, timedelta
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
-from sqlalchemy import select
-from zoo_shared.db import async_session
-from zoo_shared.db.models import Pet, Reminder, Vaccination, VetVisit
 
+from bot import api_client
 from bot.keyboards.keyboards import back_to_menu_kb, main_menu_kb
 from bot.utils.helpers import format_date
 
@@ -51,88 +49,63 @@ async def _build_calendar(user_id: int) -> str:
     """Собирает все предстоящие события в единый текст-таймлайн."""
     now = datetime.now()
     today = now.date()
-    future_30 = today + timedelta(days=30)
+
+    data = await api_client.get_medical_calendar(user_id)
+
+    if not data.get("pets"):
+        return (
+            "📅 <b>Календарь</b>\n\n"
+            "😕 У вас нет питомцев.\n"
+            "Добавьте питомца, чтобы увидеть события."
+        )
 
     events: list[tuple[datetime, str]] = []
 
-    async with async_session() as session:
-        # Питомцы пользователя
-        pets_result = await session.execute(
-            select(Pet).where(Pet.user_id == user_id)
-        )
-        pets = pets_result.scalars().all()
-        pet_map = {p.id: p for p in pets}
-        pet_ids = [p.id for p in pets]
+    for rem in data.get("reminders", []):
+        try:
+            remind_at = datetime.fromisoformat(rem["remind_at"])
+        except (ValueError, KeyError):
+            continue
+        pet_name = rem.get("pet_name", "?")
+        cat_emoji = rem.get("category_emoji", "🔔")
+        events.append((
+            remind_at,
+            f"{cat_emoji} <b>{rem['title']}</b>\n"
+            f"   🐾 {pet_name} | ⏰ {remind_at.strftime('%H:%M')} | 🔄 {rem.get('repeat_text', '')}",
+        ))
 
-        if not pet_ids:
-            return (
-                "📅 <b>Календарь</b>\n\n"
-                "😕 У вас нет питомцев.\n"
-                "Добавьте питомца, чтобы увидеть события."
-            )
+    for v in data.get("vaccinations", []):
+        next_date_str = v.get("next_date")
+        if not next_date_str:
+            continue
+        try:
+            nd = datetime.fromisoformat(next_date_str)
+        except (ValueError, TypeError):
+            continue
+        if nd.date() < today:
+            continue
+        pet_name = v.get("pet_name", "?")
+        events.append((
+            nd,
+            f"💉 <b>{v['name']}</b> (следующая)\n"
+            f"   🐾 {pet_name} | 📅 {format_date(nd.date())}",
+        ))
 
-        # Активные напоминания (ближайшие 30 дней)
-        reminders_result = await session.execute(
-            select(Reminder).where(
-                Reminder.user_id == user_id,
-                Reminder.is_active == True,  # noqa: E712
-                Reminder.remind_at >= now,
-                Reminder.remind_at <= datetime(future_30.year, future_30.month, future_30.day, 23, 59, 59),
-            )
-        )
-        reminders = reminders_result.scalars().all()
+    for vv in data.get("vet_visits", [])[:5]:
+        try:
+            vd = datetime.fromisoformat(vv["visit_date"])
+        except (ValueError, KeyError):
+            continue
+        pet_name = vv.get("pet_name", "?")
+        diagnosis = vv.get("diagnosis", "")
+        diag = diagnosis[:60] + "..." if len(diagnosis) > 60 else diagnosis
+        diag_text = f" — {diag}" if diag else ""
+        events.append((
+            vd,
+            f"🏥 <b>Визит к ветеринару</b>{diag_text}\n"
+            f"   🐾 {pet_name} | 📅 {format_date(vd.date())}",
+        ))
 
-        for rem in reminders:
-            pet = pet_map.get(rem.pet_id)
-            pet_label = f"{pet.species_emoji} {pet.name}" if pet else "?"
-            events.append((
-                rem.remind_at,
-                f"{rem.category_emoji} <b>{rem.title}</b>\n"
-                f"   🐾 {pet_label} | ⏰ {rem.remind_at.strftime('%H:%M')} | 🔄 {rem.repeat_text}",
-            ))
-
-        # Предстоящие прививки
-        vaccinations_result = await session.execute(
-            select(Vaccination).where(
-                Vaccination.pet_id.in_(pet_ids),
-                Vaccination.next_date != None,  # noqa: E711
-                Vaccination.next_date >= today,
-            )
-        )
-        vaccinations = vaccinations_result.scalars().all()
-
-        for v in vaccinations:
-            pet = pet_map.get(v.pet_id)
-            pet_label = f"{pet.species_emoji} {pet.name}" if pet else "?"
-            event_dt = datetime(v.next_date.year, v.next_date.month, v.next_date.day)
-            events.append((
-                event_dt,
-                f"💉 <b>{v.name}</b> (следующая)\n"
-                f"   🐾 {pet_label} | 📅 {format_date(v.next_date)}",
-            ))
-
-        # Последние визиты к ветеринару (5 шт.)
-        vetvisits_result = await session.execute(
-            select(VetVisit)
-            .where(VetVisit.pet_id.in_(pet_ids))
-            .order_by(VetVisit.visit_date.desc())
-            .limit(5)
-        )
-        vet_visits = vetvisits_result.scalars().all()
-
-        for vv in vet_visits:
-            pet = pet_map.get(vv.pet_id)
-            pet_label = f"{pet.species_emoji} {pet.name}" if pet else "?"
-            event_dt = datetime(vv.visit_date.year, vv.visit_date.month, vv.visit_date.day)
-            diag = vv.diagnosis[:60] + "..." if len(vv.diagnosis) > 60 else vv.diagnosis
-            diag_text = f" — {diag}" if diag else ""
-            events.append((
-                event_dt,
-                f"🏥 <b>Визит к ветеринару</b>{diag_text}\n"
-                f"   🐾 {pet_label} | 📅 {format_date(vv.visit_date)}",
-            ))
-
-    # Сортировка по дате
     events.sort(key=lambda e: e[0])
 
     if not events:
