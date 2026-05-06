@@ -14,6 +14,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from zoo_shared.config import get_settings
 
+from bot import api_client
 from bot.handlers import get_all_routers
 from bot.middlewares.error_guard import ErrorGuardMiddleware
 from bot.middlewares.throttle import ThrottleMiddleware
@@ -38,12 +39,14 @@ logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 async def on_startup(bot: Bot):
     """Действия при запуске бота."""
     logger.info("Инициализация бота...")
+    await api_client.init()
     bot_info = await bot.get_me()
     logger.info("Бот @%s (%s) запущен!", bot_info.username, bot_info.first_name)
 
 
 async def on_shutdown(bot: Bot):
     logger.info("Остановка бота...")
+    await api_client.close()
 
 
 async def main():

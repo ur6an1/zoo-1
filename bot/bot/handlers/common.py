@@ -8,7 +8,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from backend.backend.services.analytics import track_event, track_user_activity
+from bot import api_client
 from bot.keyboards.keyboards import (
     ai_hub_kb,
     back_to_menu_kb,
@@ -27,8 +27,8 @@ router = Router(name="common")
 async def cmd_start(message: Message, state: FSMContext):
     """Обработчик команды /start."""
     await state.clear()
-    await track_user_activity(message.from_user.id, source="start")
-    await track_event(message.from_user.id, "start", source="command")
+    await api_client.track_user_activity(message.from_user.id, source="start")
+    await api_client.track_event(message.from_user.id, "start", source="command")
     await message.answer(
         f"🐾 <b>Добро пожаловать в ZooBuddy!</b>\n\n"
         f"Привет, {escape(message.from_user.first_name or 'друг')}! 👋\n\n"

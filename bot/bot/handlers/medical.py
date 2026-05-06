@@ -8,11 +8,8 @@ from html import escape
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
-from sqlalchemy import select
-from zoo_shared.db import async_session
-from zoo_shared.db.models import Document, Pet, Vaccination, VetVisit, WeightRecord
 
-from backend.backend.services.access import get_owned_pet
+from bot import api_client
 from bot.keyboards.keyboards import (
     add_pet_cta_kb,
     back_to_menu_kb,
@@ -103,11 +100,7 @@ async def cb_documents(callback: CallbackQuery):
 @router.callback_query(F.data == "med:vaccines:add")
 async def cb_vaccine_add(callback: CallbackQuery, state: FSMContext):
     """Начало добавления прививки — выбор питомца."""
-    async with async_session() as session:
-        result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = result.scalars().all()
+    pets = await api_client.list_pets(callback.from_user.id)
 
     if not pets:
         await callback.message.edit_text("😕 Сначала добавьте питомца.", reply_markup=add_pet_cta_kb)
@@ -129,8 +122,7 @@ async def cb_vaccine_pet(callback: CallbackQuery, state: FSMContext):
     if pet_id is None:
         await callback.answer("Некорректный питомец", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
@@ -207,24 +199,22 @@ async def vaccine_notes(message: Message, state: FSMContext):
     await state.clear()
 
     next_d = date_type.fromisoformat(data["next_date"]) if data.get("next_date") else None
+    done_d = date_type.fromisoformat(data["date_done"])
 
-    vac = Vaccination(
+    await api_client.create_vaccination(
+        user_id=message.from_user.id,
         pet_id=data["pet_id"],
         name=data["vac_name"],
-        date_done=date_type.fromisoformat(data["date_done"]),
+        date_done=done_d,
         next_date=next_d,
         notes=notes,
     )
 
-    async with async_session() as session:
-        session.add(vac)
-        await session.commit()
-
     text = (
         "✅ <b>Прививка добавлена!</b>\n\n"
-        f"💉 {escape(vac.name)}\n"
-        f"📅 Дата: {format_date(vac.date_done)}\n"
-        f"📅 Следующая: {format_date(vac.next_date)}\n"
+        f"💉 {escape(data['vac_name'])}\n"
+        f"📅 Дата: {format_date(done_d)}\n"
+        f"📅 Следующая: {format_date(next_d)}\n"
     )
     if notes:
         text += f"📝 {escape(notes)}"
@@ -235,37 +225,30 @@ async def vaccine_notes(message: Message, state: FSMContext):
 @router.callback_query(F.data == "med:vaccines:list")
 async def cb_vaccines_list(callback: CallbackQuery):
     """Список прививок."""
-    async with async_session() as session:
-        # Получаем питомцев пользователя
-        pets_result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = pets_result.scalars().all()
-        pet_ids = [p.id for p in pets]
+    pets = await api_client.list_pets(callback.from_user.id)
 
-        if not pet_ids:
-            await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
-            await callback.answer()
-            return
+    if not pets:
+        await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
+        await callback.answer()
+        return
 
-        result = await session.execute(
-            select(Vaccination)
-            .where(Vaccination.pet_id.in_(pet_ids))
-            .order_by(Vaccination.date_done.desc())
-        )
-        vaccinations = result.scalars().all()
+    all_vacs = []
+    pet_map = {}
+    for p in pets:
+        pet_map[p["id"]] = p["name"]
+        vacs = await api_client.list_vaccinations(p["id"], callback.from_user.id)
+        all_vacs.extend(vacs)
 
-    if not vaccinations:
+    if not all_vacs:
         await callback.message.edit_text(
             "💉 Записей о прививках пока нет.", reply_markup=back_to_menu_kb
         )
     else:
-        pet_map = {p.id: p.name for p in pets}
         lines = ["💉 <b>История прививок</b>\n"]
-        for v in vaccinations[:20]:
+        for v in all_vacs[:20]:
             lines.append(
-                f"• <b>{escape(v.name)}</b> ({escape(pet_map.get(v.pet_id, '?'))})\n"
-                f"  📅 {format_date(v.date_done)} → след.: {format_date(v.next_date)}"
+                f"• <b>{escape(v['name'])}</b> ({escape(pet_map.get(v.get('pet_id', 0), '?'))})\n"
+                f"  📅 {format_date(v.get('date_done'))} → след.: {format_date(v.get('next_date'))}"
             )
         await callback.message.edit_text(
             "\n".join(lines),
@@ -282,11 +265,7 @@ async def cb_vaccines_list(callback: CallbackQuery):
 
 @router.callback_query(F.data == "med:vetvisits:add")
 async def cb_vet_add(callback: CallbackQuery, state: FSMContext):
-    async with async_session() as session:
-        result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = result.scalars().all()
+    pets = await api_client.list_pets(callback.from_user.id)
 
     if not pets:
         await callback.message.edit_text("😕 Сначала добавьте питомца.", reply_markup=add_pet_cta_kb)
@@ -308,8 +287,7 @@ async def cb_vet_pet(callback: CallbackQuery, state: FSMContext):
     if pet_id is None:
         await callback.answer("Некорректный питомец", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
@@ -357,23 +335,21 @@ async def vet_notes(message: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
 
-    visit = VetVisit(
+    visit_d = date_type.fromisoformat(data["visit_date"])
+    await api_client.create_vet_visit(
+        user_id=message.from_user.id,
         pet_id=data["pet_id"],
-        visit_date=date_type.fromisoformat(data["visit_date"]),
+        visit_date=visit_d,
         diagnosis=data.get("diagnosis", ""),
         treatment=data.get("treatment", ""),
         notes=notes,
     )
 
-    async with async_session() as session:
-        session.add(visit)
-        await session.commit()
-
     text = (
         "✅ <b>Визит записан!</b>\n\n"
-        f"📅 Дата: {format_date(visit.visit_date)}\n"
-        f"🩺 Диагноз: {escape(visit.diagnosis) if visit.diagnosis else '—'}\n"
-        f"💊 Лечение: {escape(visit.treatment) if visit.treatment else '—'}\n"
+        f"📅 Дата: {format_date(visit_d)}\n"
+        f"🩺 Диагноз: {escape(data.get('diagnosis', '')) or '—'}\n"
+        f"💊 Лечение: {escape(data.get('treatment', '')) or '—'}\n"
     )
     if notes:
         text += f"📝 {escape(notes)}"
@@ -383,36 +359,32 @@ async def vet_notes(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "med:vetvisits:list")
 async def cb_vetvisits_list(callback: CallbackQuery):
-    async with async_session() as session:
-        pets_result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = pets_result.scalars().all()
-        pet_ids = [p.id for p in pets]
+    pets = await api_client.list_pets(callback.from_user.id)
 
-        if not pet_ids:
-            await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
-            await callback.answer()
-            return
+    if not pets:
+        await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
+        await callback.answer()
+        return
 
-        result = await session.execute(
-            select(VetVisit)
-            .where(VetVisit.pet_id.in_(pet_ids))
-            .order_by(VetVisit.visit_date.desc())
-        )
-        visits = result.scalars().all()
+    all_visits = []
+    pet_map = {}
+    for p in pets:
+        pet_map[p["id"]] = p["name"]
+        visits = await api_client.list_vet_visits(p["id"], callback.from_user.id)
+        all_visits.extend(visits)
 
-    if not visits:
+    if not all_visits:
         await callback.message.edit_text(
             "🏥 Записей о визитах пока нет.", reply_markup=back_to_menu_kb
         )
     else:
-        pet_map = {p.id: p.name for p in pets}
         lines = ["🏥 <b>История визитов к ветеринару</b>\n"]
-        for v in visits[:15]:
+        for v in all_visits[:15]:
+            diag = v.get("diagnosis", "")
+            treat = v.get("treatment", "")
             lines.append(
-                f"• <b>{format_date(v.visit_date)}</b> ({escape(pet_map.get(v.pet_id, '?'))})\n"
-                f"  🩺 {escape(v.diagnosis) if v.diagnosis else '—'} | 💊 {escape(v.treatment) if v.treatment else '—'}"
+                f"• <b>{format_date(v.get('visit_date'))}</b> ({escape(pet_map.get(v.get('pet_id', 0), '?'))})\n"
+                f"  🩺 {escape(diag) if diag else '—'} | 💊 {escape(treat) if treat else '—'}"
             )
         await callback.message.edit_text(
             "\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb
@@ -427,11 +399,7 @@ async def cb_vetvisits_list(callback: CallbackQuery):
 
 @router.callback_query(F.data == "med:weight:add")
 async def cb_weight_add(callback: CallbackQuery, state: FSMContext):
-    async with async_session() as session:
-        result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = result.scalars().all()
+    pets = await api_client.list_pets(callback.from_user.id)
 
     if not pets:
         await callback.message.edit_text("😕 Сначала добавьте питомца.", reply_markup=add_pet_cta_kb)
@@ -453,8 +421,7 @@ async def cb_weight_pet(callback: CallbackQuery, state: FSMContext):
     if pet_id is None:
         await callback.answer("Некорректный питомец", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
@@ -477,19 +444,17 @@ async def weight_value(message: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
 
-    async with async_session() as session:
-        pet = await get_owned_pet(session, message.from_user.id, data["pet_id"])
-        if not pet:
-            await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
-            return
-        record = WeightRecord(pet_id=data["pet_id"], weight=w)
-        session.add(record)
-        pet.weight = w
-        await session.commit()
+    pet = await api_client.get_pet(data["pet_id"], message.from_user.id)
+    if not pet:
+        await message.answer("😕 Питомец не найден.", reply_markup=back_to_menu_kb)
+        return
+
+    record = await api_client.create_weight_record(message.from_user.id, data["pet_id"], w)
+    await api_client.update_pet(data["pet_id"], message.from_user.id, weight=w)
 
     await message.answer(
         f"✅ Вес записан: <b>{w} кг</b>\n"
-        f"📅 {format_date(record.recorded_at)}",
+        f"📅 {format_date(record.get('recorded_at'))}",
         parse_mode="HTML",
         reply_markup=back_to_menu_kb,
     )
@@ -497,32 +462,28 @@ async def weight_value(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "med:weight:list")
 async def cb_weight_list(callback: CallbackQuery):
-    async with async_session() as session:
-        pets_result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = pets_result.scalars().all()
-        pet_ids = [p.id for p in pets]
+    pets = await api_client.list_pets(callback.from_user.id)
 
-        if not pet_ids:
-            await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
-            await callback.answer()
-            return
+    if not pets:
+        await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
+        await callback.answer()
+        return
 
-        result = await session.execute(
-            select(WeightRecord)
-            .where(WeightRecord.pet_id.in_(pet_ids))
-            .order_by(WeightRecord.recorded_at.desc())
-        )
-        records = result.scalars().all()
+    all_records = []
+    pet_map = {}
+    for p in pets:
+        pet_map[p["id"]] = p["name"]
+        records = await api_client.list_weight_records(p["id"], callback.from_user.id)
+        all_records.extend([(r, p["id"]) for r in records])
 
-    if not records:
+    if not all_records:
         await callback.message.edit_text("⚖️ Записей веса пока нет.", reply_markup=back_to_menu_kb)
     else:
-        pet_map = {p.id: p.name for p in pets}
         lines = ["⚖️ <b>История веса</b>\n"]
-        for r in records[:20]:
-            lines.append(f"• {escape(pet_map.get(r.pet_id, '?'))}: <b>{r.weight} кг</b> — {format_date(r.recorded_at)}")
+        for r, pid in all_records[:20]:
+            label = escape(pet_map.get(pid, '?'))
+            dt = format_date(r.get('recorded_at'))
+            lines.append(f"• {label}: <b>{r['weight']} кг</b> — {dt}")
         await callback.message.edit_text(
             "\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb
         )
@@ -532,47 +493,43 @@ async def cb_weight_list(callback: CallbackQuery):
 @router.callback_query(F.data == "med:weight:chart")
 async def cb_weight_chart(callback: CallbackQuery):
     """Генерация графика веса."""
-    async with async_session() as session:
-        pets_result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = pets_result.scalars().all()
-        pet_ids = [p.id for p in pets]
+    pets = await api_client.list_pets(callback.from_user.id)
 
-        if not pet_ids:
-            await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
-            await callback.answer()
-            return
+    if not pets:
+        await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
+        await callback.answer()
+        return
 
-        result = await session.execute(
-            select(WeightRecord)
-            .where(WeightRecord.pet_id.in_(pet_ids))
-            .order_by(WeightRecord.recorded_at)
-        )
-        records = result.scalars().all()
+    all_records = []
+    pet_map = {}
+    for p in pets:
+        pet_map[p["id"]] = p["name"]
+        records = await api_client.list_weight_records(p["id"], callback.from_user.id)
+        for r in records:
+            r["_pet_id"] = p["id"]
+        all_records.extend(records)
 
-    if len(records) < 2:
+    if len(all_records) < 2:
         await callback.answer("Нужно минимум 2 записи для графика", show_alert=True)
         return
 
     try:
+        from datetime import datetime
+
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.dates as mdates
         import matplotlib.pyplot as plt
 
-        pet_map = {p.id: p.name for p in pets}
-
         fig, ax = plt.subplots(figsize=(10, 5))
 
-        # Группируем по питомцам
         pet_records: dict[int, list] = {}
-        for r in records:
-            pet_records.setdefault(r.pet_id, []).append(r)
+        for r in all_records:
+            pet_records.setdefault(r["_pet_id"], []).append(r)
 
         for pid, recs in pet_records.items():
-            dates = [r.recorded_at for r in recs]
-            weights = [r.weight for r in recs]
+            dates = [datetime.fromisoformat(r["recorded_at"]) for r in recs]
+            weights = [r["weight"] for r in recs]
             ax.plot(dates, weights, marker="o", label=pet_map.get(pid, f"#{pid}"))
 
         ax.set_xlabel("Дата")
@@ -611,11 +568,7 @@ async def cb_weight_chart(callback: CallbackQuery):
 
 @router.callback_query(F.data == "med:documents:add")
 async def cb_doc_add(callback: CallbackQuery, state: FSMContext):
-    async with async_session() as session:
-        result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = result.scalars().all()
+    pets = await api_client.list_pets(callback.from_user.id)
 
     if not pets:
         await callback.message.edit_text("😕 Сначала добавьте питомца.", reply_markup=add_pet_cta_kb)
@@ -637,8 +590,7 @@ async def cb_doc_pet(callback: CallbackQuery, state: FSMContext):
     if pet_id is None:
         await callback.answer("Некорректный питомец", show_alert=True)
         return
-    async with async_session() as session:
-        pet = await get_owned_pet(session, callback.from_user.id, pet_id)
+    pet = await api_client.get_pet(pet_id, callback.from_user.id)
     if not pet:
         await callback.answer("Питомец не найден", show_alert=True)
         return
@@ -689,20 +641,17 @@ async def doc_description(message: Message, state: FSMContext):
 
     doc_names = {"passport": "Ветпаспорт", "certificate": "Справка", "other": "Другое"}
 
-    doc = Document(
+    await api_client.create_document(
+        user_id=message.from_user.id,
         pet_id=data["pet_id"],
         doc_type=data["doc_type"],
         file_id=data["file_id"],
         description=desc,
     )
 
-    async with async_session() as session:
-        session.add(doc)
-        await session.commit()
-
     await message.answer(
         f"✅ Документ сохранён!\n"
-        f"📄 Тип: {doc_names.get(doc.doc_type, doc.doc_type)}\n"
+        f"📄 Тип: {doc_names.get(data['doc_type'], data['doc_type'])}\n"
         f"📝 {escape(desc) if desc else '—'}",
         reply_markup=back_to_menu_kb,
     )
@@ -710,43 +659,36 @@ async def doc_description(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "med:documents:list")
 async def cb_docs_list(callback: CallbackQuery):
-    async with async_session() as session:
-        pets_result = await session.execute(
-            select(Pet).where(Pet.user_id == callback.from_user.id)
-        )
-        pets = pets_result.scalars().all()
-        pet_ids = [p.id for p in pets]
+    pets = await api_client.list_pets(callback.from_user.id)
 
-        if not pet_ids:
-            await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
-            await callback.answer()
-            return
+    if not pets:
+        await callback.message.edit_text("😕 Нет питомцев.", reply_markup=back_to_menu_kb)
+        await callback.answer()
+        return
 
-        result = await session.execute(
-            select(Document)
-            .where(Document.pet_id.in_(pet_ids))
-            .order_by(Document.uploaded_at.desc())
-        )
-        docs = result.scalars().all()
+    all_docs = []
+    pet_map = {}
+    for p in pets:
+        pet_map[p["id"]] = p["name"]
+        docs = await api_client.list_documents(p["id"], callback.from_user.id)
+        all_docs.extend(docs)
 
-    if not docs:
+    if not all_docs:
         await callback.message.edit_text("📄 Документов пока нет.", reply_markup=back_to_menu_kb)
         await callback.answer()
         return
 
     doc_names = {"passport": "🪪 Ветпаспорт", "certificate": "📋 Справка", "other": "📄 Другое"}
-    pet_map = {p.id: p.name for p in pets}
 
-    # Отправляем каждый документ как фото
-    for doc in docs[:10]:
+    for doc in all_docs[:10]:
         caption = (
-            f"{doc_names.get(doc.doc_type, '📄')} | {escape(pet_map.get(doc.pet_id, '?'))}\n"
-            f"{escape(doc.description) if doc.description else '—'}"
+            f"{doc_names.get(doc.get('doc_type', ''), '📄')} | {escape(pet_map.get(doc.get('pet_id', 0), '?'))}\n"
+            f"{escape(doc.get('description', '')) or '—'}"
         )
-        await callback.message.answer_photo(photo=doc.file_id, caption=caption)
+        await callback.message.answer_photo(photo=doc["file_id"], caption=caption)
 
     await callback.message.answer(
-        f"📄 Показано документов: {min(len(docs), 10)}",
+        f"📄 Показано документов: {min(len(all_docs), 10)}",
         reply_markup=back_to_menu_kb,
     )
     await callback.answer()

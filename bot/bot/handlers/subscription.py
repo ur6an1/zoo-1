@@ -6,33 +6,24 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
-from sqlalchemy import select
 from zoo_shared.config import get_settings
-from zoo_shared.db import async_session
-from zoo_shared.db.models import UserSettings
 
-from backend.backend.services.analytics import build_funnel_report, track_user_activity
-from backend.backend.services.subscription import (
-    PLAN_BASIC,
-    PLAN_PRO,
-    can_use_weather_notifications,
-    get_or_create_settings,
-    grant_premium,
-    is_premium,
-    revoke_premium,
-)
+from bot import api_client
 from bot.keyboards.keyboards import back_to_menu_kb, cancel_kb, main_menu_kb, settings_menu_kb
 from bot.states.states import WeatherCityForm
 
 logger = logging.getLogger(__name__)
 router = Router(name="subscription")
 
+PLAN_BASIC = "basic"
+PLAN_PRO = "pro"
+
 
 @router.message(F.text == "⚙️ Настройки")
 async def settings_menu(message: Message, state: FSMContext):
     """Главное меню настроек."""
     await state.clear()
-    await track_user_activity(message.from_user.id, source="settings")
+    await api_client.track_user_activity(message.from_user.id, source="settings")
     await message.answer(
         "⚙️ <b>Настройки</b>\n\nВыберите раздел:",
         parse_mode="HTML",
@@ -44,7 +35,7 @@ async def settings_menu(message: Message, state: FSMContext):
 async def settings_menu_cb(callback: CallbackQuery, state: FSMContext):
     """Inline-вход в меню настроек."""
     await state.clear()
-    await track_user_activity(callback.from_user.id, source="settings")
+    await api_client.track_user_activity(callback.from_user.id, source="settings")
     await callback.message.edit_text(
         "⚙️ <b>Настройки</b>\n\nВыберите раздел:",
         parse_mode="HTML",
@@ -59,7 +50,7 @@ async def cmd_funnel(message: Message):
     if message.from_user.id not in get_settings().ADMIN_IDS:
         return
 
-    report = await build_funnel_report(days=7)
+    report = await api_client.get_funnel_report(days=7)
     await message.answer(f"<b>Analytics</b>\n\n{report}", parse_mode="HTML")
 
 
@@ -102,7 +93,7 @@ async def cmd_grant_premium(message: Message):
             return
 
     try:
-        result = await grant_premium(target_user_id, days, plan_tier=plan_tier)
+        result = await api_client.grant_premium(target_user_id, days, plan_tier=plan_tier)
         if result:
             await message.answer(
                 "✅ Подписка выдана!\n\n"
@@ -143,7 +134,7 @@ async def cmd_revoke_premium(message: Message):
         return
 
     try:
-        result = await revoke_premium(target_user_id)
+        result = await api_client.revoke_premium(target_user_id)
         if result:
             await message.answer(
                 f"✅ Подписка отозвана у пользователя <code>{target_user_id}</code>.",
@@ -158,7 +149,8 @@ async def cmd_revoke_premium(message: Message):
 
 @router.callback_query(F.data == "settings:sub_cancel")
 async def cb_subscription_cancel(callback: CallbackQuery):
-    if not await is_premium(callback.from_user.id):
+    sub = await api_client.get_subscription_status(callback.from_user.id)
+    if not sub.get("is_premium"):
         await callback.message.edit_text(
             "ℹ️ У вас нет активной подписки.",
             reply_markup=settings_menu_kb,
@@ -183,7 +175,7 @@ async def cb_subscription_cancel(callback: CallbackQuery):
 
 @router.callback_query(F.data == "settings:sub_cancel_confirm")
 async def cb_subscription_cancel_confirm(callback: CallbackQuery):
-    await revoke_premium(callback.from_user.id)
+    await api_client.revoke_premium(callback.from_user.id)
     await callback.message.edit_text(
         "✅ Подписка отменена. Вы можете снова подключить её в любое время.",
         reply_markup=settings_menu_kb,
@@ -194,8 +186,8 @@ async def cb_subscription_cancel_confirm(callback: CallbackQuery):
 @router.callback_query(F.data == "settings:weather_city")
 async def cb_weather_city(callback: CallbackQuery, state: FSMContext):
     """Начало ввода города для погоды."""
-    settings = await get_or_create_settings(callback.from_user.id)
-    current_city = settings.city or "не указан"
+    sub = await api_client.get_subscription_status(callback.from_user.id)
+    current_city = sub.get("city") or "не указан"
 
     await state.set_state(WeatherCityForm.waiting_city)
     await callback.message.edit_text(
@@ -222,18 +214,7 @@ async def weather_city_entered(message: Message, state: FSMContext):
     await state.clear()
 
     try:
-        async with async_session() as session:
-            result = await session.execute(
-                select(UserSettings).where(UserSettings.user_id == message.from_user.id)
-            )
-            settings = result.scalar()
-            if not settings:
-                settings = UserSettings(user_id=message.from_user.id, city=city)
-                session.add(settings)
-            else:
-                settings.city = city
-            await session.commit()
-
+        await api_client.update_user_settings(message.from_user.id, city=city)
         await message.answer(
             f"✅ Город сохранён: <b>{city}</b>\n\n"
             "Теперь вы можете получать погоду для этого города.",
@@ -261,7 +242,8 @@ async def weather_city_invalid(message: Message):
 @router.callback_query(F.data == "settings:weather_toggle")
 async def cb_weather_toggle(callback: CallbackQuery):
     """Включает/выключает погодные уведомления (доступно только на PRO)."""
-    if not await can_use_weather_notifications(callback.from_user.id):
+    can_weather = await api_client.check_feature_permission(callback.from_user.id, "weather_notifications")
+    if not can_weather:
         await callback.message.edit_text(
             "🔒 <b>Погодные уведомления доступны только в тарифе PRO.</b>\n\n"
             "Откройте раздел подписки, чтобы подключить или повысить тариф.",
@@ -277,19 +259,8 @@ async def cb_weather_toggle(callback: CallbackQuery):
         return
 
     try:
-        async with async_session() as session:
-            result = await session.execute(
-                select(UserSettings).where(UserSettings.user_id == callback.from_user.id)
-            )
-            settings = result.scalar()
-            if not settings:
-                settings = UserSettings(user_id=callback.from_user.id)
-                session.add(settings)
-                await session.flush()
-
-            settings.weather_notify = not settings.weather_notify
-            new_state = settings.weather_notify
-            await session.commit()
+        result = await api_client.toggle_weather_notify(callback.from_user.id)
+        new_state = result.get("weather_notify", False)
 
         status = "включены ✅" if new_state else "выключены ❌"
         await callback.message.edit_text(

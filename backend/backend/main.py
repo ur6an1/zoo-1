@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from backend.routers import health
+from backend.routers import analytics, food, health, medical, payments, pets, reminders, services, subscriptions
 
 logger = logging.getLogger(__name__)
 
@@ -25,3 +25,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ZooBuddy API", version="0.1.0", lifespan=lifespan)
 
 app.include_router(health.router)
+app.include_router(pets.router)
+app.include_router(reminders.router)
+app.include_router(medical.router)
+app.include_router(food.router)
+app.include_router(subscriptions.router)
+app.include_router(payments.router)
+app.include_router(analytics.router)
+app.include_router(services.router)
