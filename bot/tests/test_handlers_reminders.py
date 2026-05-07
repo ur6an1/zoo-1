@@ -2,26 +2,27 @@
 
 from __future__ import annotations
 
-import pytest
+from datetime import datetime as _dt
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.reminders import (
-    reminders_menu,
-    cb_reminders_menu,
     cb_reminder_add,
-    cb_reminder_pet,
-    reminder_category,
-    reminder_title,
-    reminder_description,
-    reminder_date,
-    reminder_time,
-    reminder_repeat,
-    cb_reminder_list,
-    cb_reminder_view,
-    cb_reminder_pause,
-    cb_reminder_resume,
-    cb_reminder_delete,
     cb_reminder_cancel,
+    cb_reminder_delete,
+    cb_reminder_list,
+    cb_reminder_pause,
+    cb_reminder_pet,
+    cb_reminder_resume,
+    cb_reminder_view,
+    cb_reminders_menu,
+    reminder_category,
+    reminder_date,
+    reminder_description,
+    reminder_repeat,
+    reminder_time,
+    reminder_title,
+    reminders_menu,
 )
 
 
@@ -52,8 +53,6 @@ def _state(data: dict | None = None) -> AsyncMock:
     s.get_data = AsyncMock(return_value=data or {})
     return s
 
-
-from datetime import datetime as _dt
 
 SAMPLE_REMINDER = {
     "id": 1, "title": "Feed Rex", "pet_name": "Rex",

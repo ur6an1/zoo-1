@@ -2,38 +2,38 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.food import (
-    food_menu,
-    cb_food_menu,
-    cb_food_meal,
-    cb_food_water,
+    allergy_allergen,
+    allergy_notes,
+    allergy_reaction,
+    cb_allergy_add,
+    cb_allergy_delete,
+    cb_allergy_list,
+    cb_allergy_pet,
     cb_food_allergies,
     cb_food_analytics,
-    cb_meal_add,
-    cb_meal_pet,
-    meal_name,
-    meal_portion,
-    meal_notes,
-    cb_meal_list,
-    cb_water_add,
-    cb_water_pet,
-    water_amount,
-    cb_water_list,
-    cb_allergy_add,
-    cb_allergy_pet,
-    allergy_allergen,
-    allergy_reaction,
-    allergy_notes,
-    cb_allergy_list,
-    cb_allergy_delete,
-    cb_meal_clear_confirm,
-    cb_meal_clear,
-    cb_water_clear_confirm,
-    cb_water_clear,
+    cb_food_meal,
+    cb_food_menu,
     cb_food_today,
+    cb_food_water,
+    cb_meal_add,
+    cb_meal_clear,
+    cb_meal_clear_confirm,
+    cb_meal_list,
+    cb_meal_pet,
+    cb_water_add,
+    cb_water_clear,
+    cb_water_clear_confirm,
+    cb_water_list,
+    cb_water_pet,
+    food_menu,
+    meal_name,
+    meal_notes,
+    meal_portion,
+    water_amount,
 )
 
 
@@ -224,7 +224,8 @@ async def test_cb_meal_list_empty(mock_api: MagicMock):
 async def test_cb_meal_list_with_entries(mock_api: MagicMock):
     mock_api.list_pets = AsyncMock(return_value=[PET])
     mock_api.list_food_entries = AsyncMock(return_value=[
-        {"food_name": "Chicken", "pet_id": 1, "portion": "100g", "meal_time": __import__('datetime').datetime(2026, 1, 1, 12, 0)},
+        {"food_name": "Chicken", "pet_id": 1, "portion": "100g",
+         "meal_time": __import__('datetime').datetime(2026, 1, 1, 12, 0)},
     ])
     cb = _cb()
     await cb_meal_list(cb)
@@ -468,8 +469,14 @@ async def test_cb_food_today_no_pets(mock_api: MagicMock):
 async def test_cb_food_today_with_data(mock_api: MagicMock):
     mock_api.list_pets = AsyncMock(return_value=[PET])
     mock_api.get_daily_summary = AsyncMock(return_value={
-        "food_entries": [{"food_name": "Chicken", "portion": "100g", "meal_time": __import__('datetime').datetime(2026, 1, 1, 12, 0)}],
-        "water_entries": [{"amount_ml": 150, "recorded_at": __import__('datetime').datetime(2026, 1, 1, 12, 0)}],
+        "food_entries": [
+            {"food_name": "Chicken", "portion": "100g",
+             "meal_time": __import__('datetime').datetime(2026, 1, 1, 12, 0)},
+        ],
+        "water_entries": [
+            {"amount_ml": 150,
+             "recorded_at": __import__('datetime').datetime(2026, 1, 1, 12, 0)},
+        ],
         "total_food": 1,
         "total_water_ml": 150,
     })

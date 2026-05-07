@@ -2,37 +2,37 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.pets import (
-    my_pets,
-    cb_pet_list,
-    cb_pet_view,
-    cb_pet_add,
-    pet_name,
-    pet_species,
-    pet_breed_skip,
-    pet_breed,
-    pet_birth_skip,
-    pet_birth_date,
-    pet_weight_skip,
-    pet_weight,
-    pet_photo_skip,
-    pet_photo,
-    pet_photo_invalid,
     _save_pet,
-    cb_pet_edit,
-    cb_edit_field,
-    edit_name,
-    edit_breed,
-    edit_birth,
-    edit_weight,
-    edit_photo,
     cb_confirm_delete,
     cb_delete_pet,
-    cb_pet_stats,
+    cb_edit_field,
+    cb_pet_add,
+    cb_pet_edit,
     cb_pet_export,
+    cb_pet_list,
+    cb_pet_stats,
+    cb_pet_view,
+    edit_birth,
+    edit_breed,
+    edit_name,
+    edit_photo,
+    edit_weight,
+    my_pets,
+    pet_birth_date,
+    pet_birth_skip,
+    pet_breed,
+    pet_breed_skip,
+    pet_name,
+    pet_photo,
+    pet_photo_invalid,
+    pet_photo_skip,
+    pet_species,
+    pet_weight,
+    pet_weight_skip,
 )
 
 
@@ -581,7 +581,10 @@ async def test_cb_pet_export(mock_api: MagicMock):
 
     mock_api.get_pet_export = AsyncMock(return_value={
         "pet": SAMPLE_PET,
-        "vaccinations": [{"date_done": dt_date(2025, 1, 1), "name": "Rabies", "next_date": dt_date(2026, 1, 1), "notes": "ok"}],
+        "vaccinations": [
+            {"date_done": dt_date(2025, 1, 1), "name": "Rabies",
+             "next_date": dt_date(2026, 1, 1), "notes": "ok"},
+        ],
         "vet_visits": [{"visit_date": dt_date(2025, 6, 1), "diagnosis": "Healthy", "treatment": "None"}],
         "weight_records": [{"recorded_at": dt_date(2025, 6, 1), "weight": 25.0}],
         "allergies": [{"allergen": "Chicken", "reaction": "Itching"}],

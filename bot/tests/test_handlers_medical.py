@@ -2,42 +2,42 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.medical import (
-    medical_menu,
-    cb_med_menu,
-    cb_vaccines,
-    cb_vetvisits,
-    cb_weight,
-    cb_documents,
-    cb_vaccine_add,
-    cb_vaccine_pet,
-    vaccine_name,
-    vaccine_date_done,
-    vaccine_next_skip,
-    vaccine_next_date,
-    vaccine_notes,
-    cb_vaccines_list,
-    cb_vet_add,
-    cb_vet_pet,
-    vet_date,
-    vet_diagnosis,
-    vet_treatment,
-    vet_notes,
-    cb_vetvisits_list,
-    cb_weight_add,
-    cb_weight_pet,
-    weight_value,
-    cb_weight_list,
     cb_doc_add,
     cb_doc_pet,
     cb_doc_type,
+    cb_docs_list,
+    cb_documents,
+    cb_med_menu,
+    cb_vaccine_add,
+    cb_vaccine_pet,
+    cb_vaccines,
+    cb_vaccines_list,
+    cb_vet_add,
+    cb_vet_pet,
+    cb_vetvisits,
+    cb_vetvisits_list,
+    cb_weight,
+    cb_weight_add,
+    cb_weight_list,
+    cb_weight_pet,
+    doc_description,
     doc_photo,
     doc_photo_invalid,
-    doc_description,
-    cb_docs_list,
+    medical_menu,
+    vaccine_date_done,
+    vaccine_name,
+    vaccine_next_date,
+    vaccine_next_skip,
+    vaccine_notes,
+    vet_date,
+    vet_diagnosis,
+    vet_notes,
+    vet_treatment,
+    weight_value,
 )
 
 
@@ -268,7 +268,9 @@ async def test_cb_vaccines_list_empty(mock_api: MagicMock):
 async def test_cb_vaccines_list_with_data(mock_api: MagicMock):
     mock_api.list_pets = AsyncMock(return_value=[PET])
     mock_api.list_vaccinations = AsyncMock(return_value=[
-        {"name": "Rabies", "pet_id": 1, "date_done": __import__('datetime').date(2026, 1, 1), "next_date": __import__('datetime').date(2027, 1, 1)},
+        {"name": "Rabies", "pet_id": 1,
+         "date_done": __import__('datetime').date(2026, 1, 1),
+         "next_date": __import__('datetime').date(2027, 1, 1)},
     ])
     cb = _cb()
     await cb_vaccines_list(cb)
