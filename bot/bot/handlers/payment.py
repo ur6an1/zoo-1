@@ -1,7 +1,6 @@
 """Обработчики оплаты: ЮKassa + Telegram Stars."""
 
 import logging
-import uuid
 
 from aiogram import Bot, F, Router
 from aiogram.types import (
@@ -12,8 +11,6 @@ from aiogram.types import (
     Message,
     PreCheckoutQuery,
 )
-from yookassa import Configuration
-from yookassa import Payment as YooPayment
 from zoo_shared.config import get_settings
 
 from bot import api_client
@@ -83,13 +80,18 @@ async def _reconcile_card_payment(
     expected_plan_key: str | None = None,
     notify_user: bool = False,
 ) -> tuple[str, str]:
-    Configuration.account_id = get_settings().YOOKASSA_SHOP_ID
-    Configuration.secret_key = get_settings().YOOKASSA_SECRET_KEY
+    plan = PLANS.get(expected_plan_key) if expected_plan_key else None
+    expected_amount = _normalize_money_value(plan["price"]) if plan else None
 
     try:
-        payment = YooPayment.find_one(payment_id)
+        result = await api_client.reconcile_yookassa_payment(
+            payment_id=payment_id,
+            expected_user_id=expected_user_id,
+            expected_plan_key=expected_plan_key,
+            expected_amount=str(expected_amount) if expected_amount else None,
+        )
     except Exception as e:
-        logger.exception("YooKassa check payment error: %s", e)
+        logger.exception("Backend reconcile error: %s", e)
         if expected_user_id is not None:
             await api_client.track_event(
                 expected_user_id, "payment_failed",
@@ -98,11 +100,30 @@ async def _reconcile_card_payment(
             )
         return "error", "Не удалось проверить оплату. Попробуйте позже."
 
-    payment_status = str(getattr(payment, "status", "") or "").strip()
+    if not result.get("ok"):
+        error = result.get("error", "unknown")
+        await api_client.update_pending_payment(
+            "yookassa", payment_id, status="error", last_error=error,
+        )
+        if expected_user_id is not None:
+            await api_client.track_event(
+                expected_user_id, "payment_failed",
+                source="yookassa",
+                payload={"payment_id": payment_id, "reason": error},
+            )
+        error_messages = {
+            "metadata_missing": "Не удалось подтвердить параметры платежа. Обратитесь в поддержку.",
+            "user_mismatch": "Этот платёж привязан к другому пользователю.",
+            "plan_mismatch": "Этот платёж привязан к другому тарифу.",
+            "amount_mismatch": "Сумма или валюта платежа не совпали с тарифом.",
+        }
+        return "error", error_messages.get(error, "Не удалось проверить оплату. Попробуйте позже.")
+
+    payment_status = result.get("status", "pending")
     if payment_status != "succeeded":
         await api_client.update_pending_payment(
             "yookassa", payment_id,
-            status=payment_status or "pending",
+            status=payment_status,
             completed=payment_status == "canceled",
         )
         if payment_status == "canceled":
@@ -115,56 +136,8 @@ async def _reconcile_card_payment(
             return "canceled", "Платёж отменён."
         return "pending", "Оплата ещё не поступила. Попробуйте снова через несколько секунд."
 
-    metadata_raw = getattr(payment, "metadata", {}) or {}
-    metadata = metadata_raw if hasattr(metadata_raw, "get") else {}
-    meta_user_id = str(metadata.get("user_id", "")).strip()
-    meta_plan_key = str(metadata.get("plan_key", "")).strip()
-
-    if not meta_user_id or not meta_plan_key:
-        await api_client.update_pending_payment(
-            "yookassa", payment_id, status="error", last_error="metadata_missing",
-        )
-        logger.warning("YooKassa metadata missing for payment id=%s", payment_id)
-        if expected_user_id is not None:
-            await api_client.track_event(
-                expected_user_id, "payment_failed",
-                source="yookassa",
-                payload={"payment_id": payment_id, "reason": "metadata_missing"},
-            )
-        return "error", "Не удалось подтвердить параметры платежа. Обратитесь в поддержку."
-
-    if expected_user_id is not None and meta_user_id != str(expected_user_id):
-        await api_client.update_pending_payment(
-            "yookassa", payment_id, status="error", last_error="user_mismatch",
-        )
-        logger.warning(
-            "YooKassa metadata user mismatch: payment=%s expected=%s actual=%s",
-            payment_id, expected_user_id, meta_user_id,
-        )
-        if expected_user_id is not None:
-            await api_client.track_event(
-                expected_user_id, "payment_failed",
-                source="yookassa",
-                payload={"payment_id": payment_id, "reason": "user_mismatch"},
-            )
-        return "error", "Этот платёж привязан к другому пользователю."
-
-    if expected_plan_key is not None and meta_plan_key != expected_plan_key:
-        await api_client.update_pending_payment(
-            "yookassa", payment_id, status="error", last_error="plan_mismatch",
-        )
-        logger.warning(
-            "YooKassa metadata plan mismatch: payment=%s expected=%s actual=%s",
-            payment_id, expected_plan_key, meta_plan_key,
-        )
-        if expected_user_id is not None:
-            await api_client.track_event(
-                expected_user_id, "payment_failed",
-                source="yookassa",
-                payload={"payment_id": payment_id, "reason": "plan_mismatch"},
-            )
-        return "error", "Этот платёж привязан к другому тарифу."
-
+    meta_user_id = result.get("metadata_user_id", "")
+    meta_plan_key = result.get("metadata_plan_key", "")
     plan = PLANS.get(meta_plan_key)
     if not plan:
         await api_client.update_pending_payment(
@@ -178,37 +151,14 @@ async def _reconcile_card_payment(
             )
         return "error", "Неизвестный тариф платежа."
 
-    amount_raw = getattr(getattr(payment, "amount", None), "value", "")
-    currency_raw = getattr(getattr(payment, "amount", None), "currency", "")
-    amount_value = _normalize_money_value(amount_raw)
-    expected_amount = _normalize_money_value(plan["price"])
-    currency_value = str(currency_raw or "").strip().upper()
-    if amount_value != expected_amount or currency_value != "RUB":
-        await api_client.update_pending_payment(
-            "yookassa", payment_id,
-            status="error",
-            last_error=f"amount_mismatch:{amount_value}:{currency_value}",
-        )
-        logger.warning(
-            "YooKassa amount mismatch: payment=%s expected=%s RUB actual=%s %s",
-            payment_id, expected_amount, amount_value, currency_value,
-        )
-        if expected_user_id is not None:
-            await api_client.track_event(
-                expected_user_id, "payment_failed",
-                source="yookassa",
-                payload={"payment_id": payment_id, "reason": "amount_mismatch"},
-            )
-        return "error", "Сумма или валюта платежа не совпали с тарифом."
-
     user_id = int(meta_user_id)
-    result = await api_client.mark_payment_processed(
+    mark_result = await api_client.mark_payment_processed(
         provider="yookassa",
         payment_id=payment_id,
         user_id=user_id,
         plan_key=meta_plan_key,
     )
-    if not result.get("success"):
+    if not mark_result.get("success"):
         await api_client.update_pending_payment(
             "yookassa", payment_id, status="succeeded", completed=True,
         )
@@ -386,46 +336,22 @@ async def pay_card(callback: CallbackQuery):
         await callback.answer("Оплата картой временно недоступна. Выберите Stars.", show_alert=True)
         return
 
-    Configuration.account_id = get_settings().YOOKASSA_SHOP_ID
-    Configuration.secret_key = get_settings().YOOKASSA_SECRET_KEY
-
     try:
         return_url = get_settings().PAYMENT_RETURN_URL
         if not return_url:
             bot_info = await callback.bot.get_me()
             return_url = f"https://t.me/{bot_info.username}" if bot_info.username else "https://t.me"
 
-        payment_request = {
-            "amount": {"value": f"{plan['price']}.00", "currency": "RUB"},
-            "confirmation": {
-                "type": "redirect",
-                "return_url": return_url,
-            },
-            "capture": True,
-            "description": f"Zoo Bot — {plan['name']}, 1 месяц",
-            "metadata": {
-                "user_id": str(callback.from_user.id),
-                "plan_key": plan_key,
-            },
-        }
-        if get_settings().RECEIPT_EMAIL:
-            payment_request["receipt"] = {
-                "customer": {"email": get_settings().RECEIPT_EMAIL},
-                "items": [
-                    {
-                        "description": f"Подписка {plan['name']} Zoo Bot",
-                        "quantity": "1.00",
-                        "amount": {"value": f"{plan['price']}.00", "currency": "RUB"},
-                        "vat_code": 1,
-                        "payment_subject": "service",
-                        "payment_mode": "full_payment",
-                    }
-                ],
-            }
-
-        payment = YooPayment.create(payment_request, uuid.uuid4().hex)
+        create_result = await api_client.create_yookassa_payment(
+            plan_key=plan_key,
+            plan_price=plan["price"],
+            plan_name=plan["name"],
+            user_id=callback.from_user.id,
+            return_url=return_url,
+            receipt_email=get_settings().RECEIPT_EMAIL,
+        )
     except Exception as e:
-        logger.exception("YooKassa create payment error: %s", e)
+        logger.exception("Backend create payment error: %s", e)
         await api_client.track_event(
             callback.from_user.id, "payment_failed",
             source="yookassa",
@@ -434,8 +360,17 @@ async def pay_card(callback: CallbackQuery):
         await callback.answer("Не удалось создать платёж. Попробуйте позже.", show_alert=True)
         return
 
-    pay_url = payment.confirmation.confirmation_url
-    pid = payment.id
+    if not create_result.get("ok"):
+        await api_client.track_event(
+            callback.from_user.id, "payment_failed",
+            source="yookassa",
+            payload={"plan_key": plan_key, "reason": "create_error"},
+        )
+        await callback.answer("Не удалось создать платёж. Попробуйте позже.", show_alert=True)
+        return
+
+    pay_url = create_result["confirmation_url"]
+    pid = create_result["payment_id"]
     await api_client.upsert_pending_payment(
         provider="yookassa",
         payment_id=pid,

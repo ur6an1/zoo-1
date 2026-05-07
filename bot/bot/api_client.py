@@ -681,6 +681,37 @@ async def toggle_weather_notify(user_id: int) -> dict:
     return r.json()
 
 
+async def create_yookassa_payment(
+    plan_key: str, plan_price: int, plan_name: str,
+    user_id: int, return_url: str, receipt_email: str = "",
+) -> dict:
+    c = await get_client()
+    r = await c.post("/payments/yookassa/create", json={
+        "plan_key": plan_key, "plan_price": plan_price,
+        "plan_name": plan_name, "user_id": user_id,
+        "return_url": return_url, "receipt_email": receipt_email,
+    })
+    r.raise_for_status()
+    return r.json()
+
+
+async def reconcile_yookassa_payment(
+    payment_id: str,
+    expected_user_id: int | None = None,
+    expected_plan_key: str | None = None,
+    expected_amount: str | None = None,
+) -> dict:
+    c = await get_client()
+    r = await c.post("/payments/yookassa/reconcile", json={
+        "payment_id": payment_id,
+        "expected_user_id": expected_user_id,
+        "expected_plan_key": expected_plan_key,
+        "expected_amount": expected_amount,
+    })
+    r.raise_for_status()
+    return r.json()
+
+
 async def list_pending_payments(provider: str) -> list[dict]:
     c = await get_client()
     r = await c.get(f"/payments/pending_list/{provider}")
