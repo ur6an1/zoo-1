@@ -3,26 +3,25 @@
 from __future__ import annotations
 
 from aiogram.fsm.state import State, StatesGroup
-
 from bot.states.states import (
-    PetForm,
+    AllergyForm,
+    ClinicSearchForm,
+    CompareForm,
+    DocumentForm,
     EditPetForm,
+    FoodForm,
+    MedicalTestForm,
+    NutritionForm,
+    PetForm,
     ReminderForm,
+    SymptomsForm,
     VaccinationForm,
     VetVisitForm,
-    WeightForm,
-    FoodForm,
-    WaterForm,
-    AllergyForm,
-    DocumentForm,
-    NutritionForm,
-    SymptomsForm,
-    CompareForm,
-    WeightGoalForm,
     VoiceNoteForm,
+    WaterForm,
     WeatherCityForm,
-    MedicalTestForm,
-    ClinicSearchForm,
+    WeightForm,
+    WeightGoalForm,
 )
 
 

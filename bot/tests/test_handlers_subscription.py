@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.subscription import (
-    settings_menu,
-    settings_menu_cb,
-    cmd_funnel,
-    cmd_grant_premium,
-    cmd_revoke_premium,
     cb_subscription_cancel,
     cb_subscription_cancel_confirm,
     cb_weather_city,
+    cb_weather_toggle,
+    cmd_funnel,
+    cmd_grant_premium,
+    cmd_revoke_premium,
+    settings_menu,
+    settings_menu_cb,
     weather_city_entered,
     weather_city_invalid,
-    cb_weather_toggle,
 )
 
 

@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.common import (
-    cmd_start,
-    cmd_help,
-    cmd_cancel,
+    ai_hub,
+    back_to_menu_text,
     cb_cancel,
     cb_main_menu,
-    back_to_menu_text,
-    pets_hub,
+    cmd_cancel,
+    cmd_help,
+    cmd_start,
     health_hub,
-    ai_hub,
+    pets_hub,
     settings_hub,
 )
 

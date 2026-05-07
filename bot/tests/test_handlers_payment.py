@@ -2,27 +2,25 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.payment import (
-    PLANS,
     _normalize_money_value,
     _payment_methods_note,
     _reconcile_card_payment,
-    reconcile_pending_card_payments,
-    payment_plans_kb,
-    payment_methods_kb,
-    show_plans_cb,
-    choose_plan,
     card_unavailable,
-    pay_card,
     check_card,
+    choose_plan,
+    pay_card,
     pay_stars,
+    payment_methods_kb,
+    payment_plans_kb,
     pre_checkout,
+    reconcile_pending_card_payments,
+    show_plans_cb,
     successful_payment,
 )
-
 
 # ── helpers ──
 

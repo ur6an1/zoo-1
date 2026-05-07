@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import time
-
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from bot.middlewares.error_guard import ErrorGuardMiddleware
-from bot.middlewares.throttle import ThrottleMiddleware, RateLimitMiddleware, ai_rate_limiter
-
+from bot.middlewares.throttle import RateLimitMiddleware, ThrottleMiddleware, ai_rate_limiter
 
 # ── ErrorGuardMiddleware ──
 
