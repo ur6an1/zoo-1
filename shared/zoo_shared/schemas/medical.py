@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 
 from pydantic import BaseModel
 
@@ -22,7 +22,6 @@ class VaccinationRead(BaseModel):
     date_done: date
     next_date: date | None
     notes: str
-    created_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -42,7 +41,6 @@ class VetVisitRead(BaseModel):
     diagnosis: str
     treatment: str
     notes: str
-    created_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -56,6 +54,6 @@ class WeightRecordRead(BaseModel):
     id: int
     pet_id: int
     weight: float
-    recorded_at: datetime
+    recorded_at: date
 
     model_config = {"from_attributes": True}
