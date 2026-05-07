@@ -1,22 +1,28 @@
 """Tests for bot.handlers.photo — photo recognition, nutrition, symptoms handlers."""
 
-import pytest
+import io
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.photo import (
+    _pet_info_str,
     cb_nutrition_start,
     cb_photo_food,
     cb_photo_menu,
     cb_photo_pet,
     cb_symptoms_start,
+    handle_photo,
+    handle_voice_anywhere,
     nutrition_not_photo,
     nutrition_pet_chosen,
+    nutrition_photo_received,
     nutrition_start,
     photo_menu,
     symptoms_not_text,
     symptoms_pet_chosen,
     symptoms_start,
-    _pet_info_str,
+    symptoms_text_received,
+    symptoms_voice_received,
 )
 
 PET = {"id": 1, "name": "Rex", "species": "собака", "breed": "Лабрадор",
@@ -28,7 +34,14 @@ def _msg(text: str = "📷 Распознать фото") -> MagicMock:
     m = MagicMock()
     m.text = text
     m.from_user = MagicMock(id=1)
+    m.chat = MagicMock(id=1)
     m.answer = AsyncMock()
+    photo_obj = MagicMock()
+    photo_obj.file_id = "file123"
+    m.photo = [photo_obj]
+    voice_obj = MagicMock()
+    voice_obj.file_id = "voice123"
+    m.voice = voice_obj
     return m
 
 
@@ -43,13 +56,24 @@ def _cb(data: str = "photo:menu") -> MagicMock:
     return cb
 
 
-def _state(data: dict | None = None) -> MagicMock:
+def _state(data: dict | None = None, current_state: str | None = None) -> MagicMock:
     s = MagicMock()
     s.clear = AsyncMock()
     s.set_state = AsyncMock()
     s.update_data = AsyncMock()
     s.get_data = AsyncMock(return_value=data or {})
+    s.get_state = AsyncMock(return_value=current_state)
     return s
+
+
+def _bot() -> MagicMock:
+    bot = MagicMock()
+    bot.send_chat_action = AsyncMock()
+    file_mock = MagicMock()
+    file_mock.file_path = "voice/file.ogg"
+    bot.get_file = AsyncMock(return_value=file_mock)
+    bot.download_file = AsyncMock(return_value=io.BytesIO(b"fakedata"))
+    return bot
 
 
 # ── helper ──
@@ -386,3 +410,520 @@ async def test_symptoms_not_text():
     msg = _msg()
     await symptoms_not_text(msg)
     msg.answer.assert_awaited_once()
+
+
+# ── nutrition_photo_received ──
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.analyze_food_for_pet", new_callable=AsyncMock, return_value="Good food")
+@patch("bot.handlers.photo.api_client")
+async def test_nutrition_photo_received_ok(mock_api, mock_analyze):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state(data={"nutrition_pet_info": "собака Rex"})
+    await nutrition_photo_received(msg, state, bot)
+    processing.edit_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_nutrition_photo_received_ai_not_ok(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=False)
+    msg = _msg()
+    state = _state()
+    bot = _bot()
+    await nutrition_photo_received(msg, state, bot)
+    msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_nutrition_photo_received_limit(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(False, 0))
+    msg = _msg()
+    state = _state()
+    bot = _bot()
+    await nutrition_photo_received(msg, state, bot)
+    msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_nutrition_photo_received_download_error(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    bot.get_file = AsyncMock(side_effect=RuntimeError("download error"))
+    state = _state()
+    await nutrition_photo_received(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.analyze_food_for_pet", new_callable=AsyncMock, return_value=None)
+@patch("bot.handlers.photo.api_client")
+async def test_nutrition_photo_received_no_result(mock_api, mock_analyze):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state()
+    await nutrition_photo_received(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.analyze_food_for_pet", new_callable=AsyncMock, return_value="x" * 5000)
+@patch("bot.handlers.photo.api_client")
+async def test_nutrition_photo_received_long_result(mock_api, mock_analyze):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state(data={"nutrition_pet_info": "собака Rex"})
+    await nutrition_photo_received(msg, state, bot)
+    processing.edit_text.assert_awaited_once()
+
+
+# ── symptoms_text_received ──
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_text_received_too_short(mock_api):
+    msg = _msg(text="hi")
+    state = _state()
+    bot = _bot()
+    await symptoms_text_received(msg, state, bot)
+    msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_text_received_ai_not_ok(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=False)
+    msg = _msg(text="My pet is sick and vomiting")
+    state = _state(data={"symptoms_pet_info": "собака Rex"})
+    bot = _bot()
+    await symptoms_text_received(msg, state, bot)
+    msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_text_received_limit(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(False, 0))
+    msg = _msg(text="My pet is sick and vomiting")
+    state = _state(data={"symptoms_pet_info": "собака Rex"})
+    bot = _bot()
+    await symptoms_text_received(msg, state, bot)
+    msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.consult_symptoms", new_callable=AsyncMock, return_value="AI diagnosis")
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_text_received_ok(mock_api, mock_consult):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    msg = _msg(text="My pet is sick and vomiting")
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    state = _state(data={"symptoms_pet_info": "собака Rex"})
+    bot = _bot()
+    await symptoms_text_received(msg, state, bot)
+    processing.edit_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.consult_symptoms", new_callable=AsyncMock, return_value=None)
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_text_received_no_result(mock_api, mock_consult):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg(text="My pet is sick and vomiting")
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    state = _state(data={"symptoms_pet_info": "собака Rex"})
+    bot = _bot()
+    await symptoms_text_received(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.consult_symptoms", new_callable=AsyncMock, return_value="x" * 5000)
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_text_received_long_result(mock_api, mock_consult):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    msg = _msg(text="My pet is sick and vomiting heavily")
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    state = _state(data={"symptoms_pet_info": "собака Rex"})
+    bot = _bot()
+    await symptoms_text_received(msg, state, bot)
+    processing.edit_text.assert_awaited_once()
+
+
+# ── symptoms_voice_received ──
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_voice_received_ai_not_ok(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=False)
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    state = _state()
+    bot = _bot()
+    await symptoms_voice_received(msg, state, bot)
+    processing.edit_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_voice_received_limit(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(False, 0))
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    state = _state()
+    bot = _bot()
+    await symptoms_voice_received(msg, state, bot)
+    processing.edit_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_voice_received_download_error(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    bot.get_file = AsyncMock(side_effect=RuntimeError("err"))
+    state = _state()
+    await symptoms_voice_received(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.transcribe_voice", new_callable=AsyncMock, return_value="")
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_voice_received_no_transcription(mock_api, mock_tr):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state()
+    await symptoms_voice_received(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.consult_symptoms", new_callable=AsyncMock, return_value="AI answer")
+@patch("bot.handlers.photo.transcribe_voice", new_callable=AsyncMock, return_value="My pet is ill")
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_voice_received_ok(mock_api, mock_tr, mock_consult):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state(data={"symptoms_pet_info": "собака Rex"})
+    await symptoms_voice_received(msg, state, bot)
+    assert processing.edit_text.await_count >= 2
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.consult_symptoms", new_callable=AsyncMock, return_value=None)
+@patch("bot.handlers.photo.transcribe_voice", new_callable=AsyncMock, return_value="My pet is ill")
+@patch("bot.handlers.photo.api_client")
+async def test_symptoms_voice_received_no_result(mock_api, mock_tr, mock_consult):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state(data={"symptoms_pet_info": "собака Rex"})
+    await symptoms_voice_received(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+# ── handle_photo ──
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_handle_photo_protected_state(mock_api):
+    msg = _msg()
+    from bot.states.states import PetForm
+    state = _state(current_state=PetForm.photo.state)
+    bot = _bot()
+    await handle_photo(msg, state, bot)
+    msg.answer.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_handle_photo_no_mode(mock_api):
+    msg = _msg()
+    state = _state(data={})
+    bot = _bot()
+    await handle_photo(msg, state, bot)
+    msg.answer.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_handle_photo_ai_not_ok(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=False)
+    msg = _msg()
+    state = _state(data={"photo_mode": "pet"})
+    bot = _bot()
+    await handle_photo(msg, state, bot)
+    msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_handle_photo_limit(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(False, 0))
+    msg = _msg()
+    state = _state(data={"photo_mode": "pet"})
+    bot = _bot()
+    await handle_photo(msg, state, bot)
+    msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_handle_photo_download_error(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    bot.get_file = AsyncMock(side_effect=RuntimeError("err"))
+    state = _state(data={"photo_mode": "pet"})
+    await handle_photo(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.analyze_pet_photo", new_callable=AsyncMock, return_value="A cute dog")
+@patch("bot.handlers.photo.api_client")
+async def test_handle_photo_pet_mode_ok(mock_api, mock_analyze):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state(data={"photo_mode": "pet"})
+    await handle_photo(msg, state, bot)
+    processing.edit_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.analyze_food_photo", new_callable=AsyncMock, return_value="Good food")
+@patch("bot.handlers.photo.api_client")
+async def test_handle_photo_food_mode_ok(mock_api, mock_analyze):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state(data={"photo_mode": "food"})
+    await handle_photo(msg, state, bot)
+    processing.edit_text.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.analyze_pet_photo", new_callable=AsyncMock, return_value=None)
+@patch("bot.handlers.photo.api_client")
+async def test_handle_photo_no_result(mock_api, mock_analyze):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state(data={"photo_mode": "pet"})
+    await handle_photo(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+# ── handle_voice_anywhere ──
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_handle_voice_anywhere_protected_state(mock_api):
+    msg = _msg()
+    from bot.states.states import VoiceNoteForm
+    state = _state(current_state=VoiceNoteForm.waiting_voice.state)
+    bot = _bot()
+    await handle_voice_anywhere(msg, state, bot)
+    msg.answer.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_handle_voice_anywhere_ai_not_ok(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=False)
+    msg = _msg()
+    state = _state()
+    bot = _bot()
+    await handle_voice_anywhere(msg, state, bot)
+    msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_handle_voice_anywhere_limit(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(False, 0))
+    msg = _msg()
+    state = _state()
+    bot = _bot()
+    await handle_voice_anywhere(msg, state, bot)
+    msg.answer.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.api_client")
+async def test_handle_voice_anywhere_download_error(mock_api):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    bot.get_file = AsyncMock(side_effect=RuntimeError("err"))
+    state = _state()
+    await handle_voice_anywhere(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.transcribe_voice", new_callable=AsyncMock, return_value="")
+@patch("bot.handlers.photo.api_client")
+async def test_handle_voice_anywhere_no_transcription(mock_api, mock_tr):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state()
+    await handle_voice_anywhere(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.consult_symptoms", new_callable=AsyncMock, return_value="AI says ok")
+@patch("bot.handlers.photo.transcribe_voice", new_callable=AsyncMock, return_value="My pet problem")
+@patch("bot.handlers.photo.api_client")
+async def test_handle_voice_anywhere_ok_with_pets(mock_api, mock_tr, mock_consult):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.list_pets = AsyncMock(return_value=[PET])
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state()
+    await handle_voice_anywhere(msg, state, bot)
+    assert processing.edit_text.await_count >= 2
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.consult_symptoms", new_callable=AsyncMock, return_value="AI says ok")
+@patch("bot.handlers.photo.transcribe_voice", new_callable=AsyncMock, return_value="My pet problem")
+@patch("bot.handlers.photo.api_client")
+async def test_handle_voice_anywhere_ok_no_pets(mock_api, mock_tr, mock_consult):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.list_pets = AsyncMock(return_value=[])
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state()
+    await handle_voice_anywhere(msg, state, bot)
+    assert processing.edit_text.await_count >= 2
+
+
+@pytest.mark.asyncio
+@patch("bot.handlers.photo.consult_symptoms", new_callable=AsyncMock, return_value=None)
+@patch("bot.handlers.photo.transcribe_voice", new_callable=AsyncMock, return_value="My pet problem")
+@patch("bot.handlers.photo.api_client")
+async def test_handle_voice_anywhere_no_result(mock_api, mock_tr, mock_consult):
+    mock_api.is_ai_operational = AsyncMock(return_value=True)
+    mock_api.check_ai_limit = AsyncMock(return_value=(True, 5))
+    mock_api.refund_ai_limit = AsyncMock()
+    mock_api.list_pets = AsyncMock(return_value=[PET])
+    msg = _msg()
+    processing = AsyncMock()
+    processing.edit_text = AsyncMock()
+    msg.answer = AsyncMock(return_value=processing)
+    bot = _bot()
+    state = _state()
+    await handle_voice_anywhere(msg, state, bot)
+    mock_api.refund_ai_limit.assert_awaited_once()

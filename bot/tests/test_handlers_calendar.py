@@ -1,8 +1,8 @@
 """Tests for bot.handlers.calendar_view — calendar event handlers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.calendar_view import calendar_menu, cb_calendar_view
 
 

@@ -5,10 +5,9 @@ from __future__ import annotations
 from datetime import date, datetime
 from unittest.mock import AsyncMock, patch
 
+import bot.api_client as ac
 import httpx
 import pytest
-
-import bot.api_client as ac
 
 
 @pytest.fixture(autouse=True)

@@ -1,8 +1,8 @@
 """Tests for bot.handlers.norms — food/water norms handlers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.norms import cb_food_norms
 
 

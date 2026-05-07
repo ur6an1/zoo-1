@@ -1,8 +1,8 @@
 """Tests for bot.handlers.weight_goal — weight goal handlers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.weight_goal import (
     cb_weight_goal,
     cb_weight_goal_set,

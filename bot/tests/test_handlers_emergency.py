@@ -1,8 +1,8 @@
 """Tests for bot.handlers.emergency — SOS/emergency handlers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.emergency import (
     cb_clinic_radius,
     cb_sos_clinic,

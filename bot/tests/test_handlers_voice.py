@@ -1,8 +1,8 @@
 """Tests for bot.handlers.voice — voice notes handlers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.voice import (
     cb_voice_add,
     cb_voice_list,

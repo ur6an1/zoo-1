@@ -1,8 +1,8 @@
 """Tests for bot.handlers.tips — tips/FAQ handlers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from bot.handlers.tips import cb_tips, cb_tips_menu, tips_menu
 
 

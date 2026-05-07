@@ -1,8 +1,8 @@
 """Tests for bot.handlers.weather_handler — weather display handlers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from bot.handlers.weather_handler import (
     _generate_pet_weather_alert,
     weather_show,
