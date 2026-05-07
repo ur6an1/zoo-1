@@ -13,7 +13,7 @@ import_mode = "importlib"
 [tool.coverage.run]
 source = [
     "shared/zoo_shared",
-    "bot/bot/utils",
+    "bot/bot",
     "backend/backend/services",
     "worker/worker",
 ]
@@ -21,10 +21,6 @@ omit = [
     "*/tests/*",
     "*/conftest.py",
     "alembic/*",
-    "bot/bot/handlers/*",
-    "bot/bot/keyboards/*",
-    "bot/bot/states/*",
-    "bot/bot/middlewares/*",
     "bot/bot/main.py",
     "backend/backend/main.py",
     "backend/backend/deps.py",
