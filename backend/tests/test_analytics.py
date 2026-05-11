@@ -45,3 +45,79 @@ class TestAnalyticsConstants:
 
     def test_user_returned_event(self):
         assert "user_returned" in FUNNEL_EVENTS
+
+
+# ── DB tests ─────────────────────────────────────────────────
+
+from contextlib import asynccontextmanager
+from unittest.mock import patch
+
+import pytest
+
+_MOD = "backend.services.analytics"
+
+
+@pytest.fixture
+def analytics_db(db_session):
+    @asynccontextmanager
+    async def _session():
+        yield db_session
+
+    with patch(f"{_MOD}.async_session", _session):
+        yield db_session
+
+
+@pytest.mark.asyncio
+async def test_track_event_persists(analytics_db):
+    from backend.services.analytics import track_event
+    from zoo_shared.db.models import AnalyticsEvent
+    from sqlalchemy import select
+
+    await track_event(30001, "start", source="bot")
+    result = await analytics_db.execute(
+        select(AnalyticsEvent).where(AnalyticsEvent.user_id == 30001)
+    )
+    rows = result.scalars().all()
+    assert len(rows) == 1
+    assert rows[0].event_name == "start"
+
+
+@pytest.mark.asyncio
+async def test_track_event_with_payload(analytics_db):
+    from backend.services.analytics import track_event
+    from zoo_shared.db.models import AnalyticsEvent
+    from sqlalchemy import select
+
+    await track_event(30002, "payment_succeeded", payload={"amount": 299})
+    result = await analytics_db.execute(
+        select(AnalyticsEvent).where(AnalyticsEvent.user_id == 30002)
+    )
+    row = result.scalars().first()
+    assert row is not None
+    assert "299" in row.payload_json
+
+
+@pytest.mark.asyncio
+async def test_build_funnel_report_returns_string(analytics_db):
+    from backend.services.analytics import build_funnel_report
+
+    report = await build_funnel_report(days=7)
+    assert isinstance(report, str)
+    assert "Воронка" in report
+    assert "start" in report
+
+
+@pytest.mark.asyncio
+async def test_track_user_activity_first_visit_no_return_event(analytics_db):
+    from backend.services.analytics import track_user_activity
+    from zoo_shared.db.models import AnalyticsEvent
+    from sqlalchemy import select
+
+    await track_user_activity(30003, source="bot")
+    result = await analytics_db.execute(
+        select(AnalyticsEvent).where(
+            AnalyticsEvent.user_id == 30003,
+            AnalyticsEvent.event_name == "user_returned",
+        )
+    )
+    assert result.scalars().first() is None

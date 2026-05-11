@@ -329,6 +329,6 @@ async def analyze_medical_test(image_bytes: bytes, pet_info: str) -> str | None:
 
 async def transcribe_voice(voice_bytes: bytes) -> str | None:
     """Транскрибирует голосовое сообщение через OpenAI Whisper API."""
-    from services.voice import transcribe_voice as _transcribe_voice
+    from backend.services.voice import transcribe_voice as _transcribe_voice
 
     return await _transcribe_voice(voice_bytes)

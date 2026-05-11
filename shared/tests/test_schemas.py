@@ -108,7 +108,7 @@ class TestMedicalSchemas:
         assert w.weight == 5.5
 
     def test_weight_record_read(self):
-        w = WeightRecordRead(id=1, pet_id=1, weight=5.5, recorded_at=datetime.now())
+        w = WeightRecordRead(id=1, pet_id=1, weight=5.5, recorded_at=date.today())
         assert w.weight == 5.5
 
 
