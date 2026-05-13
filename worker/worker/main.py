@@ -16,7 +16,7 @@ from zoo_shared.config import get_settings
 
 from worker.bot_sender import close_bot
 from worker.tasks.payments import reconcile_pending_payments
-from worker.tasks.reminders import load_all_reminders
+from worker.tasks.reminders import load_all_reminders, periodic_sync_reminders
 from worker.tasks.subscriptions import send_subscription_expiration_notifications
 from worker.tasks.vaccinations import check_vaccination_schedule
 from worker.tasks.weather import send_weather_notifications
@@ -68,8 +68,16 @@ async def main():
         misfire_grace_time=3600,
     )
 
+    scheduler.add_job(
+        periodic_sync_reminders,
+        trigger=IntervalTrigger(seconds=60),
+        id="reminder_sync",
+        replace_existing=True,
+        misfire_grace_time=120,
+    )
+
     scheduler.start()
-    logger.info("Worker started (vaccinations 09:00, weather 07:30, payments 30s, subscriptions 10:00)")
+    logger.info("Worker started (vaccinations 09:00, weather 07:30, payments 30s, subscriptions 10:00, reminders sync 60s)")
 
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()

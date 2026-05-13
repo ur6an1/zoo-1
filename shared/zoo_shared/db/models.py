@@ -57,8 +57,8 @@ class Pet(Base):
             years -= 1
             months += 12
         if years > 0:
-            y_word = "год" if years % 10 == 1 and years != 11 else "лет"
-            if years % 10 in (2, 3, 4) and years not in (12, 13, 14):
+            y_word = "год" if years % 10 == 1 and years % 100 != 11 else "лет"
+            if years % 10 in (2, 3, 4) and years % 100 not in (12, 13, 14):
                 y_word = "года"
             return f"{years} {y_word}"
         if months > 0:

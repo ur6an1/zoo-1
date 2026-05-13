@@ -64,17 +64,27 @@ def parse_amount(text: str) -> int | None:
         return None
 
 
-def format_date(d: date | None) -> str:
-    """Форматирует дату в ДД.ММ.ГГГГ."""
+def format_date(d: date | str | None) -> str:
+    """Форматирует дату в ДД.ММ.ГГГГ. Принимает date, ISO-строку или None."""
     if d is None:
         return "—"
+    if isinstance(d, str):
+        try:
+            d = date.fromisoformat(d)
+        except ValueError:
+            return d
     return d.strftime("%d.%m.%Y")
 
 
-def format_datetime(dt: datetime | None) -> str:
-    """Форматирует дату-время."""
-    if dt is None:
+def format_datetime(dt: datetime | str | None) -> str:
+    """Форматирует дату-время. Принимает datetime, ISO-строку или None."""
+    if dt is None or dt == "":
         return "—"
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt)
+        except ValueError:
+            return dt
     return dt.strftime("%d.%m.%Y %H:%M")
 
 
