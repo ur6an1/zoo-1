@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from worker.tasks.reminders import schedule_reminder, send_reminder
+from worker.tasks.reminders import _now_local, schedule_reminder, send_reminder
 from zoo_shared.db.models import Reminder
 
 
@@ -36,13 +36,15 @@ class TestScheduleReminder:
 
     def test_once_future_scheduled(self):
         scheduler = self._make_scheduler()
-        future = datetime.now() + timedelta(hours=1)
+        now = _now_local()
+        future = now + timedelta(hours=1)
         schedule_reminder(scheduler, self._make_reminder(repeat="once", remind_at=future))
         scheduler.add_job.assert_called_once()
 
     def test_once_past_not_scheduled(self):
         scheduler = self._make_scheduler()
-        past = datetime.now() - timedelta(hours=1)
+        now = _now_local()
+        past = now - timedelta(hours=1)
         schedule_reminder(scheduler, self._make_reminder(repeat="once", remind_at=past))
         scheduler.add_job.assert_not_called()
 
