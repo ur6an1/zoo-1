@@ -1,13 +1,14 @@
 """Reminder tasks — send reminders, load/schedule reminders."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from zoo_shared.config import get_settings
 from zoo_shared.db import async_session
 from zoo_shared.db.models import Reminder
@@ -28,7 +29,7 @@ def _now_local() -> datetime:
 async def send_reminder(reminder_id: int):
     """Отправляет напоминание пользователю."""
     async with async_session() as session:
-        reminder = await session.get(Reminder, reminder_id)
+        reminder = await session.get(Reminder, reminder_id, options=[selectinload(Reminder.pet)])
         if not reminder or not reminder.is_active:
             return
 
@@ -45,11 +46,13 @@ async def send_reminder(reminder_id: int):
             text += f"📝 {reminder.description}\n"
         text += f"\n🔄 Повтор: {reminder.repeat_text}"
 
-        await send_message(reminder.user_id, text)
+        sent = await send_message(reminder.user_id, text)
 
-        if reminder.repeat == "once":
+        if reminder.repeat == "once" and sent:
             reminder.is_active = False
             await session.commit()
+        elif reminder.repeat == "once":
+            logger.warning("Reminder %s was not deactivated because sending failed", reminder.id)
 
 
 def schedule_reminder(scheduler: AsyncIOScheduler, reminder: Reminder):
@@ -114,11 +117,13 @@ async def _sync_reminders(scheduler: AsyncIOScheduler):
         for rem in reminders:
             try:
                 if rem.repeat == "once" and rem.remind_at <= now:
-                    rem.is_active = False
-                    deactivated += 1
                     job = scheduler.get_job(f"reminder_{rem.id}")
                     if job:
                         job.remove()
+                    await send_reminder(rem.id)
+                    await session.refresh(rem)
+                    if not rem.is_active:
+                        deactivated += 1
                     continue
                 schedule_reminder(scheduler, rem)
                 scheduled += 1

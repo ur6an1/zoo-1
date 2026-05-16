@@ -164,3 +164,32 @@ class TestSendReminder:
             await send_reminder(1)
             assert mock_reminder.is_active is False
             mock_session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_reminder_once_stays_active_when_send_fails(self):
+        mock_pet = MagicMock()
+        mock_pet.name = "Cat"
+        mock_reminder = MagicMock()
+        mock_reminder.id = 1
+        mock_reminder.is_active = True
+        mock_reminder.pet = mock_pet
+        mock_reminder.category_emoji = "!"
+        mock_reminder.title = "Medicine"
+        mock_reminder.description = ""
+        mock_reminder.repeat_text = "once"
+        mock_reminder.repeat = "once"
+        mock_reminder.user_id = 42
+
+        mock_session = AsyncMock()
+        mock_session.get = AsyncMock(return_value=mock_reminder)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        mock_session.commit = AsyncMock()
+
+        with (
+            patch("worker.tasks.reminders.async_session", return_value=mock_session),
+            patch("worker.tasks.reminders.send_message", new_callable=AsyncMock, return_value=False),
+        ):
+            await send_reminder(1)
+            assert mock_reminder.is_active is True
+            mock_session.commit.assert_not_called()

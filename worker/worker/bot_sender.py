@@ -4,6 +4,7 @@ FORBIDDEN: set_webhook, delete_webhook, get_updates, Dispatcher, start_polling.
 Only: send_message, send_photo, and other outgoing methods.
 """
 
+import asyncio
 import logging
 
 from aiogram import Bot
@@ -31,12 +32,16 @@ def get_bot() -> Bot:
 async def send_message(chat_id: int, text: str, parse_mode: str = "HTML") -> bool:
     """Send a text message. Returns True on success."""
     bot = get_bot()
-    try:
-        await bot.send_message(chat_id=chat_id, text=text, parse_mode=parse_mode)
-        return True
-    except Exception as e:
-        logger.error("Failed to send message to %s: %s", chat_id, e)
-        return False
+    for attempt in range(1, 4):
+        try:
+            await bot.send_message(chat_id=chat_id, text=text, parse_mode=parse_mode)
+            logger.info("Message sent to %s", chat_id)
+            return True
+        except Exception as e:
+            logger.warning("Failed to send message to %s (attempt %s/3): %s", chat_id, attempt, e)
+            if attempt < 3:
+                await asyncio.sleep(2 * attempt)
+    return False
 
 
 async def close_bot() -> None:
