@@ -4,6 +4,7 @@ import base64
 import logging
 
 import aiohttp
+from backend.backend.services.provider_health import mark_ai_unavailable
 from zoo_shared.config import get_settings
 
 _settings = get_settings()
@@ -81,6 +82,8 @@ async def _request_chat_completion(messages: list[dict], max_tokens: int) -> str
                 if resp.status != 200:
                     err = await resp.text()
                     logger.error("AI request error %s: %s", resp.status, err[:400])
+                    if resp.status in (401, 402, 403):
+                        mark_ai_unavailable()
                     return None
                 data = await resp.json()
                 choices = data.get("choices", [])

@@ -7,7 +7,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("BOT_TOKEN", "fake:token")
 os.environ.setdefault("REDIS_URL", "")
 
-from backend.services.provider_health import _CACHE, _TTL, _is_fresh
+from backend.services.provider_health import _CACHE, _TTL, _is_fresh, mark_ai_unavailable
 
 
 class TestIsFresh:
@@ -43,3 +43,12 @@ class TestCacheStructure:
 
     def test_ttl_positive(self):
         assert _TTL.total_seconds() > 0
+
+    def test_mark_ai_unavailable_sets_cache(self):
+        _CACHE["ai"]["status"] = True
+        _CACHE["ai"]["checked_at"] = None
+
+        mark_ai_unavailable()
+
+        assert _CACHE["ai"]["status"] is False
+        assert _CACHE["ai"]["checked_at"] is not None

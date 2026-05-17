@@ -21,6 +21,12 @@ _CACHE: dict[str, dict[str, datetime | bool | None]] = {
 }
 
 
+def mark_ai_unavailable() -> None:
+    """Cache a hard AI provider failure, such as an invalid API key."""
+    _CACHE["ai"]["status"] = False
+    _CACHE["ai"]["checked_at"] = datetime.utcnow()
+
+
 def _is_fresh(name: str) -> bool:
     checked_at = _CACHE[name]["checked_at"]
     if not checked_at:
@@ -32,28 +38,45 @@ async def _check_ai() -> bool | None:
     if _settings.OPENROUTER_API_KEY:
         headers = {
             "Authorization": f"Bearer {_settings.OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
         }
         if _settings.OPENROUTER_SITE_URL:
             headers["HTTP-Referer"] = _settings.OPENROUTER_SITE_URL
         if _settings.OPENROUTER_APP_NAME:
             headers["X-Title"] = _settings.OPENROUTER_APP_NAME
-        url = f"{_settings.OPENROUTER_BASE_URL.rstrip('/')}/models"
+        url = f"{_settings.OPENROUTER_BASE_URL.rstrip('/')}/chat/completions"
+        payload = {
+            "model": _settings.OPENROUTER_MODEL,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+        }
     elif _settings.OPENAI_API_KEY:
-        headers = {"Authorization": f"Bearer {_settings.OPENAI_API_KEY}"}
-        url = "https://api.openai.com/v1/models"
+        headers = {
+            "Authorization": f"Bearer {_settings.OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        url = "https://api.openai.com/v1/chat/completions"
+        payload = {
+            "model": _settings.OPENAI_MODEL,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+        }
     else:
         return False
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(
+            async with session.post(
                 url,
+                json=payload,
                 headers=headers,
                 timeout=_TIMEOUT,
             ) as resp:
                 if resp.status == 200:
                     return True
-                if resp.status in (400, 401, 403, 404):
+                if resp.status in (400, 401, 402, 403, 404):
+                    err = await resp.text()
+                    logger.warning("AI provider health-check rejected request %s: %s", resp.status, err[:300])
                     return False
                 return None
     except Exception as e:
