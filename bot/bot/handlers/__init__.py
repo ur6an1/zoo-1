@@ -2,6 +2,7 @@
 
 from aiogram import Router
 
+from bot.handlers.admin import router as admin_router
 from bot.handlers.analysis import router as analysis_router
 from bot.handlers.calendar_view import router as calendar_router
 from bot.handlers.common import router as common_router
@@ -24,6 +25,7 @@ from bot.handlers.weight_goal import router as weight_goal_router
 def get_all_routers() -> list[Router]:
     """Возвращает список всех роутеров бота."""
     return [
+        admin_router,
         common_router,
         pets_router,
         reminders_router,

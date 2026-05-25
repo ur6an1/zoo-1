@@ -700,3 +700,46 @@ async def get_norms(user_id: int) -> dict:
     r = await c.get(f"/services/norms/{user_id}")
     r.raise_for_status()
     return r.json()
+
+
+# ══════════════ ADMIN ══════════════
+
+
+async def admin_overview() -> dict:
+    c = await get_client()
+    r = await c.get("/admin/overview")
+    r.raise_for_status()
+    return r.json()
+
+
+async def admin_finance() -> dict:
+    c = await get_client()
+    r = await c.get("/admin/finance")
+    r.raise_for_status()
+    return r.json()
+
+
+async def admin_users(limit: int = 8, offset: int = 0, query: str | None = None) -> dict:
+    c = await get_client()
+    params: dict = {"limit": limit, "offset": offset}
+    if query:
+        params["query"] = query
+    r = await c.get("/admin/users", params=params)
+    r.raise_for_status()
+    return r.json()
+
+
+async def admin_user_detail(user_id: int) -> dict | None:
+    c = await get_client()
+    r = await c.get(f"/admin/users/{user_id}")
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    return r.json()
+
+
+async def admin_broadcast_targets() -> list[int]:
+    c = await get_client()
+    r = await c.get("/admin/broadcast/targets")
+    r.raise_for_status()
+    return r.json()["user_ids"]
