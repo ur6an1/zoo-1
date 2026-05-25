@@ -69,9 +69,10 @@ def analytics_db(db_session):
 
 @pytest.mark.asyncio
 async def test_track_event_persists(analytics_db):
-    from backend.services.analytics import track_event
-    from zoo_shared.db.models import AnalyticsEvent
     from sqlalchemy import select
+    from zoo_shared.db.models import AnalyticsEvent
+
+    from backend.services.analytics import track_event
 
     await track_event(30001, "start", source="bot")
     result = await analytics_db.execute(
@@ -84,9 +85,10 @@ async def test_track_event_persists(analytics_db):
 
 @pytest.mark.asyncio
 async def test_track_event_with_payload(analytics_db):
-    from backend.services.analytics import track_event
-    from zoo_shared.db.models import AnalyticsEvent
     from sqlalchemy import select
+    from zoo_shared.db.models import AnalyticsEvent
+
+    from backend.services.analytics import track_event
 
     await track_event(30002, "payment_succeeded", payload={"amount": 299})
     result = await analytics_db.execute(
@@ -109,9 +111,10 @@ async def test_build_funnel_report_returns_string(analytics_db):
 
 @pytest.mark.asyncio
 async def test_track_user_activity_first_visit_no_return_event(analytics_db):
-    from backend.services.analytics import track_user_activity
-    from zoo_shared.db.models import AnalyticsEvent
     from sqlalchemy import select
+    from zoo_shared.db.models import AnalyticsEvent
+
+    from backend.services.analytics import track_user_activity
 
     await track_user_activity(30003, source="bot")
     result = await analytics_db.execute(

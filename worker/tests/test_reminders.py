@@ -4,8 +4,9 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from worker.tasks.reminders import _now_local, schedule_reminder, send_reminder
 from zoo_shared.db.models import Reminder
+
+from worker.tasks.reminders import _now_local, schedule_reminder, send_reminder
 
 
 class TestScheduleReminder:

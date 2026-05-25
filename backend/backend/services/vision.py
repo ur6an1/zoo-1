@@ -4,8 +4,9 @@ import base64
 import logging
 
 import aiohttp
-from backend.backend.services.provider_health import mark_ai_unavailable
 from zoo_shared.config import get_settings
+
+from backend.backend.services.provider_health import mark_ai_unavailable
 
 _settings = get_settings()
 

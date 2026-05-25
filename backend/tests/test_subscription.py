@@ -8,6 +8,8 @@ os.environ.setdefault("REDIS_URL", "")
 
 from datetime import datetime, timedelta
 
+from zoo_shared.db.models import UserSettings
+
 from backend.services.subscription import (
     GRACE_DAYS,
     PLAN_AI_LIMITS,
@@ -22,7 +24,6 @@ from backend.services.subscription import (
     _pet_limit_for_plan,
     format_subscription_info,
 )
-from zoo_shared.db.models import UserSettings
 
 
 class TestNormalizePlan:

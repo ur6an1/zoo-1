@@ -8,6 +8,7 @@ os.environ.setdefault("REDIS_URL", "")
 
 
 import pytest
+
 from backend.services.voice import WHISPER_MODEL, WHISPER_URL, transcribe_voice
 
 
@@ -19,8 +20,9 @@ class TestVoiceConstants:
         assert WHISPER_MODEL == "whisper-1"
 
 
-import backend.backend.services.voice as voice_mod
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import backend.backend.services.voice as voice_mod
 
 
 class TestTranscribeVoice:

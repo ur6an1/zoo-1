@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
+from zoo_shared.db.models import Pet, UserSettings
 
 from backend.services.subscription import (
     GRACE_DAYS,
@@ -29,7 +30,6 @@ from backend.services.subscription import (
     refund_ai_limit,
     revoke_premium,
 )
-from zoo_shared.db.models import Pet, UserSettings
 
 _MOD = "backend.services.subscription"
 

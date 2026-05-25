@@ -6,6 +6,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("BOT_TOKEN", "fake:token")
 os.environ.setdefault("REDIS_URL", "")
 
+import backend.backend.services.vision as vision_mod
 from backend.services.vision import (
     FOOD_ANALYSIS_PROMPT,
     OPENAI_URL,
@@ -18,9 +19,6 @@ from backend.services.vision import (
     _provider,
     has_any_ai,
 )
-
-
-import backend.backend.services.vision as vision_mod
 
 
 class TestHasAnyAi:
@@ -156,6 +154,7 @@ class TestPrompts:
 # ── async functions: early return when no AI keys ─────────────────────────────
 
 import pytest
+
 from backend.services.vision import (
     _gpt_photo,
     _gpt_text,

@@ -1,8 +1,9 @@
 """Tests for backend.services.access — ownership checks with DB."""
 
 import pytest
-from backend.services.access import get_owned_allergy, get_owned_pet, get_owned_reminder
 from zoo_shared.db.models import Allergy, Pet, Reminder
+
+from backend.services.access import get_owned_allergy, get_owned_pet, get_owned_reminder
 
 
 @pytest.mark.asyncio
