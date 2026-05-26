@@ -700,3 +700,13 @@ async def get_norms(user_id: int) -> dict:
     r = await c.get(f"/services/norms/{user_id}")
     r.raise_for_status()
     return r.json()
+
+
+# ══════════════ PRIVACY (152-ФЗ) ══════════════
+
+
+async def delete_user_data(user_id: int) -> dict:
+    c = await get_client()
+    r = await c.post(f"/privacy/delete_user/{user_id}")
+    r.raise_for_status()
+    return r.json()["deleted"]

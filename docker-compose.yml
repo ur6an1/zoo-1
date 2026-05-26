@@ -2,6 +2,13 @@ x-shared-env: &shared-env
   DATABASE_URL: postgresql+asyncpg://zoo:${POSTGRES_PASSWORD:-changeme}@postgres:5432/zoo_bot
   REDIS_URL: redis://redis:6379/0
 
+# Ротация docker-логов: иначе json-file растёт безгранично и забивает диск.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -33,6 +40,7 @@ services:
       context: .
       dockerfile: docker/backend.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       <<: *shared-env
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -68,6 +76,7 @@ services:
       context: .
       dockerfile: docker/bot.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       <<: *shared-env
       BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}
@@ -94,6 +103,7 @@ services:
       context: .
       dockerfile: docker/worker.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       <<: *shared-env
       BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}
