@@ -24,7 +24,7 @@ async def get_weather(city: str) -> dict | None:
             ) as resp:
                 if resp.status != 200:
                     return None
-                data = await resp.json()
+                data = await resp.json(content_type=None)
                 current = data["current_condition"][0]
                 return {
                     "temp_c": int(current["temp_C"]),

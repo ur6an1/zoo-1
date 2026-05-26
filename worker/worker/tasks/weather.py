@@ -16,11 +16,12 @@ async def _get_weather(city: str) -> dict | None:
     import aiohttp
 
     try:
+        url = f"https://wttr.in/{city}?format=j1&lang=ru"
         async with aiohttp.ClientSession() as cs:
-            async with cs.get(f"https://wttr.in/{city}?format=j1", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with cs.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status != 200:
                     return None
-                data = await resp.json()
+                data = await resp.json(content_type=None)
                 current = data["current_condition"][0]
                 return {
                     "temp_c": int(current["temp_C"]),
