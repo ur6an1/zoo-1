@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
-
 from backend.services.subscription import (
     GRACE_DAYS,
     PLAN_BASIC,
@@ -125,12 +124,14 @@ async def test_get_or_create_settings_existing_user(sub_db):
 
 @pytest.mark.asyncio
 async def test_get_or_create_expires_overdue_premium(sub_db):
-    sub_db.add(UserSettings(
-        user_id=20022,
-        is_premium=True,
-        plan_tier=PLAN_PRO,
-        premium_until=datetime.utcnow() - timedelta(days=GRACE_DAYS + 5),
-    ))
+    sub_db.add(
+        UserSettings(
+            user_id=20022,
+            is_premium=True,
+            plan_tier=PLAN_PRO,
+            premium_until=datetime.utcnow() - timedelta(days=GRACE_DAYS + 5),
+        )
+    )
     await sub_db.flush()
     s = await get_or_create_settings(20022)
     assert s.is_premium is False
@@ -185,6 +186,7 @@ async def test_check_ai_limit_decrements_counter(sub_db):
 async def test_check_ai_limit_exhausted(sub_db):
     uid = 20042
     from zoo_shared.config import get_settings
+
     limit = get_settings().FREE_AI_LIMIT
     for _ in range(limit):
         await check_ai_limit(uid)
@@ -234,6 +236,7 @@ async def test_check_pet_limit_under_limit(sub_db):
 async def test_check_pet_limit_at_limit(sub_db):
     uid = 20061
     from zoo_shared.config import get_settings
+
     limit = get_settings().FREE_PET_LIMIT
     for i in range(limit):
         sub_db.add(Pet(user_id=uid, name=f"Pet{i}", species="кот"))

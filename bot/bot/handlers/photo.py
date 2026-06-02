@@ -6,15 +6,15 @@ from html import escape
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
-from zoo_shared.config import get_settings
-
-from backend.backend.services.vision import (
+from backend.services.vision import (
     analyze_food_for_pet,
     analyze_food_photo,
     analyze_pet_photo,
     consult_symptoms,
     transcribe_voice,
 )
+from zoo_shared.config import get_settings
+
 from bot import api_client
 from bot.keyboards.keyboards import (
     add_pet_cta_kb,
@@ -32,10 +32,7 @@ router = Router(name="photo")
 
 
 def _no_ai_message() -> str:
-    return (
-        "⚠️ AI-функции временно недоступны.\n\n"
-        "Мы уже работаем над восстановлением. Попробуйте позже."
-    )
+    return "⚠️ AI-функции временно недоступны.\n\nМы уже работаем над восстановлением. Попробуйте позже."
 
 
 def _ai_limit_message() -> str:
@@ -108,8 +105,7 @@ async def cb_photo_menu(callback: CallbackQuery, state: FSMContext):
         return
 
     await callback.message.edit_text(
-        "📷 <b>Распознавание фото с AI</b>\n\n"
-        "Выберите тип анализа или просто отправьте фото:",
+        "📷 <b>Распознавание фото с AI</b>\n\nВыберите тип анализа или просто отправьте фото:",
         parse_mode="HTML",
         reply_markup=photo_menu_kb,
     )
@@ -289,8 +285,7 @@ async def nutrition_photo_received(message: Message, state: FSMContext, bot: Bot
 
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
     processing_msg = await message.answer(
-        "🔍 <b>AI анализирует корм и рассчитывает порции...</b>\n\n"
-        "⏳ Глубокий анализ — несколько секунд...",
+        "🔍 <b>AI анализирует корм и рассчитывает порции...</b>\n\n⏳ Глубокий анализ — несколько секунд...",
         parse_mode="HTML",
     )
 
@@ -321,8 +316,7 @@ async def nutrition_photo_received(message: Message, state: FSMContext, bot: Bot
     else:
         await api_client.refund_ai_limit(message.from_user.id)
         await processing_msg.edit_text(
-            "😕 AI-сервис временно недоступен или не смог обработать фото.\n"
-            "Попробуйте позже.",
+            "😕 AI-сервис временно недоступен или не смог обработать фото.\nПопробуйте позже.",
             reply_markup=back_to_menu_kb,
         )
 
@@ -331,8 +325,7 @@ async def nutrition_photo_received(message: Message, state: FSMContext, bot: Bot
 async def nutrition_not_photo(message: Message):
     """Ожидали фото, получили текст."""
     await message.answer(
-        "📷 Пожалуйста, отправьте <b>фото корма</b> (пачка, банка, этикетка).\n"
-        "Или нажмите «Отмена».",
+        "📷 Пожалуйста, отправьте <b>фото корма</b> (пачка, банка, этикетка).\nИли нажмите «Отмена».",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -461,8 +454,7 @@ async def symptoms_text_received(message: Message, state: FSMContext, bot: Bot):
 
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
     processing_msg = await message.answer(
-        "🔍 <b>AI анализирует симптомы...</b>\n\n"
-        "⏳ Глубокий анализ — несколько секунд...",
+        "🔍 <b>AI анализирует симптомы...</b>\n\n⏳ Глубокий анализ — несколько секунд...",
         parse_mode="HTML",
     )
 
@@ -527,8 +519,7 @@ async def symptoms_voice_received(message: Message, state: FSMContext, bot: Bot)
         return
 
     await transcribing_msg.edit_text(
-        f"🎙 <b>Распознано:</b>\n<i>«{escape(text)}»</i>\n\n"
-        f"🔍 <b>Анализирую...</b>",
+        f"🎙 <b>Распознано:</b>\n<i>«{escape(text)}»</i>\n\n🔍 <b>Анализирую...</b>",
         parse_mode="HTML",
     )
 
@@ -552,8 +543,7 @@ async def symptoms_voice_received(message: Message, state: FSMContext, bot: Bot)
     else:
         await api_client.refund_ai_limit(message.from_user.id)
         await transcribing_msg.edit_text(
-            f"🎙 <b>Распознано:</b> <i>«{escape(text)}»</i>\n\n"
-            "😕 AI-сервис временно недоступен. Попробуйте позже.",
+            f"🎙 <b>Распознано:</b> <i>«{escape(text)}»</i>\n\n😕 AI-сервис временно недоступен. Попробуйте позже.",
             parse_mode="HTML",
             reply_markup=cancel_kb,
         )
@@ -563,8 +553,7 @@ async def symptoms_voice_received(message: Message, state: FSMContext, bot: Bot)
 async def symptoms_not_text(message: Message):
     """Ожидали текст или голос, получили что-то другое."""
     await message.answer(
-        "✏️ <b>Опишите симптомы текстом</b> или 🎙 <b>отправьте голосовое</b>.\n"
-        "Или нажмите «Отмена».",
+        "✏️ <b>Опишите симптомы текстом</b> или 🎙 <b>отправьте голосовое</b>.\nИли нажмите «Отмена».",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -581,6 +570,7 @@ async def handle_photo(message: Message, state: FSMContext, bot: Bot):
     current_state = await state.get_state()
 
     from bot.states.states import CompareForm, DocumentForm, EditPetForm, MedicalTestForm, NutritionForm, PetForm
+
     protected_states = [
         PetForm.photo.state,
         EditPetForm.editing_photo.state,
@@ -611,8 +601,7 @@ async def handle_photo(message: Message, state: FSMContext, bot: Bot):
 
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
     processing_msg = await message.answer(
-        "🔍 <b>AI анализирует фото...</b>\n"
-        "⏳ Глубокий анализ — несколько секунд...",
+        "🔍 <b>AI анализирует фото...</b>\n⏳ Глубокий анализ — несколько секунд...",
         parse_mode="HTML",
     )
 
@@ -646,8 +635,7 @@ async def handle_photo(message: Message, state: FSMContext, bot: Bot):
     else:
         await api_client.refund_ai_limit(message.from_user.id)
         await processing_msg.edit_text(
-            "😕 AI-сервис временно недоступен или не смог обработать фото.\n"
-            "Попробуйте позже.",
+            "😕 AI-сервис временно недоступен или не смог обработать фото.\nПопробуйте позже.",
             reply_markup=photo_menu_kb,
         )
 
@@ -662,6 +650,7 @@ async def handle_voice_anywhere(message: Message, state: FSMContext, bot: Bot):
     """Голосовое сообщение из любого места — расшифровать и отправить AI."""
     current_state = await state.get_state()
     from bot.states.states import VoiceNoteForm
+
     if current_state in [VoiceNoteForm.waiting_voice.state]:
         return
 
@@ -713,8 +702,7 @@ async def handle_voice_anywhere(message: Message, state: FSMContext, bot: Bot):
         pet_info = "Питомец не указан"
 
     await processing_msg.edit_text(
-        f"🎙 <b>Распознано:</b>\n<i>«{escape(text)}»</i>\n\n"
-        f"🔍 <b>AI анализирует...</b>",
+        f"🎙 <b>Распознано:</b>\n<i>«{escape(text)}»</i>\n\n🔍 <b>AI анализирует...</b>",
         parse_mode="HTML",
     )
 
@@ -727,16 +715,14 @@ async def handle_voice_anywhere(message: Message, state: FSMContext, bot: Bot):
 
         pet_note = f" (для {pet.get('species_emoji', '🐾')} {escape(pet['name'])})" if pet else ""
         await processing_msg.edit_text(
-            f"🎙 <b>Вы сказали:</b> <i>«{escape(text)}»</i>{pet_note}\n\n"
-            f"🩺 <b>AI-консультация:</b>\n\n{safe_result}",
+            f"🎙 <b>Вы сказали:</b> <i>«{escape(text)}»</i>{pet_note}\n\n🩺 <b>AI-консультация:</b>\n\n{safe_result}",
             parse_mode="HTML",
             reply_markup=back_to_menu_kb,
         )
     else:
         await api_client.refund_ai_limit(message.from_user.id)
         await processing_msg.edit_text(
-            f"🎙 <b>Распознано:</b> <i>«{escape(text)}»</i>\n\n"
-            "😕 AI-сервис временно недоступен. Попробуйте позже.",
+            f"🎙 <b>Распознано:</b> <i>«{escape(text)}»</i>\n\n😕 AI-сервис временно недоступен. Попробуйте позже.",
             parse_mode="HTML",
             reply_markup=back_to_menu_kb,
         )

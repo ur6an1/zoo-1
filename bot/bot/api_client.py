@@ -202,8 +202,12 @@ async def list_vaccinations(pet_id: int, user_id: int) -> list[dict]:
 
 
 async def create_vaccination(
-    user_id: int, pet_id: int, name: str, date_done: date,
-    next_date: date | None = None, notes: str = "",
+    user_id: int,
+    pet_id: int,
+    name: str,
+    date_done: date,
+    next_date: date | None = None,
+    notes: str = "",
 ) -> dict:
     c = await get_client()
     body = {
@@ -233,8 +237,12 @@ async def list_vet_visits(pet_id: int, user_id: int) -> list[dict]:
 
 
 async def create_vet_visit(
-    user_id: int, pet_id: int, visit_date: date,
-    diagnosis: str = "", treatment: str = "", notes: str = "",
+    user_id: int,
+    pet_id: int,
+    visit_date: date,
+    diagnosis: str = "",
+    treatment: str = "",
+    notes: str = "",
 ) -> dict:
     c = await get_client()
     body = {
@@ -278,13 +286,22 @@ async def list_documents(pet_id: int, user_id: int) -> list[dict]:
 
 
 async def create_document(
-    user_id: int, pet_id: int, doc_type: str, file_id: str, description: str = "",
+    user_id: int,
+    pet_id: int,
+    doc_type: str,
+    file_id: str,
+    description: str = "",
 ) -> dict:
     c = await get_client()
     r = await c.post(
         "/medical/documents",
-        params={"user_id": user_id, "pet_id": pet_id, "doc_type": doc_type,
-                "file_id": file_id, "description": description},
+        params={
+            "user_id": user_id,
+            "pet_id": pet_id,
+            "doc_type": doc_type,
+            "file_id": file_id,
+            "description": description,
+        },
     )
     r.raise_for_status()
     return r.json()
@@ -314,8 +331,12 @@ async def list_food_entries(pet_id: int, user_id: int, days: int = 7) -> list[di
 
 
 async def create_food_entry(
-    user_id: int, pet_id: int, food_name: str,
-    portion: str = "", portion_grams: float | None = None, notes: str = "",
+    user_id: int,
+    pet_id: int,
+    food_name: str,
+    portion: str = "",
+    portion_grams: float | None = None,
+    notes: str = "",
 ) -> dict:
     c = await get_client()
     body: dict = {"pet_id": pet_id, "food_name": food_name, "portion": portion, "notes": notes}
@@ -380,7 +401,11 @@ async def list_allergies_by_user(user_id: int) -> list[dict]:
 
 
 async def create_allergy(
-    user_id: int, pet_id: int, allergen: str, reaction: str = "", notes: str = "",
+    user_id: int,
+    pet_id: int,
+    allergen: str,
+    reaction: str = "",
+    notes: str = "",
 ) -> dict:
     c = await get_client()
     body = {"pet_id": pet_id, "allergen": allergen, "reaction": reaction, "notes": notes}
@@ -498,39 +523,68 @@ async def update_user_settings(user_id: int, **fields) -> None:
 
 
 async def mark_payment_processed(
-    provider: str, payment_id: str, user_id: int, plan_key: str,
+    provider: str,
+    payment_id: str,
+    user_id: int,
+    plan_key: str,
 ) -> tuple[bool, bool]:
     c = await get_client()
-    r = await c.post("/payments/mark_processed", json={
-        "provider": provider, "payment_id": payment_id,
-        "user_id": user_id, "plan_key": plan_key,
-    })
+    r = await c.post(
+        "/payments/mark_processed",
+        json={
+            "provider": provider,
+            "payment_id": payment_id,
+            "user_id": user_id,
+            "plan_key": plan_key,
+        },
+    )
     r.raise_for_status()
     data = r.json()
     return data["ok"], data["duplicate"]
 
 
 async def upsert_pending_payment(
-    provider: str, payment_id: str, user_id: int, plan_key: str,
-    amount_value: str = "", currency: str = "", status: str = "pending",
+    provider: str,
+    payment_id: str,
+    user_id: int,
+    plan_key: str,
+    amount_value: str = "",
+    currency: str = "",
+    status: str = "pending",
 ) -> None:
     c = await get_client()
-    await c.post("/payments/upsert_pending", json={
-        "provider": provider, "payment_id": payment_id,
-        "user_id": user_id, "plan_key": plan_key,
-        "amount_value": amount_value, "currency": currency, "status": status,
-    })
+    await c.post(
+        "/payments/upsert_pending",
+        json={
+            "provider": provider,
+            "payment_id": payment_id,
+            "user_id": user_id,
+            "plan_key": plan_key,
+            "amount_value": amount_value,
+            "currency": currency,
+            "status": status,
+        },
+    )
 
 
 async def update_pending_payment(
-    provider: str, payment_id: str, status: str,
-    last_error: str = "", completed: bool = False,
+    provider: str,
+    payment_id: str,
+    status: str,
+    last_error: str = "",
+    completed: bool = False,
 ) -> None:
     c = await get_client()
-    await c.post("/payments/update_pending", json={
-        "provider": provider, "payment_id": payment_id,
-        "status": status, "last_error": last_error, "completed": completed,
-    })
+    await c.post(
+        "/payments/update_pending",
+        json={
+            "provider": provider,
+            "payment_id": payment_id,
+            "status": status,
+            "last_error": last_error,
+            "completed": completed,
+        },
+    )
 
 
 async def get_pending_payment(provider: str, payment_id: str) -> dict | None:
@@ -544,14 +598,22 @@ async def get_pending_payment(provider: str, payment_id: str) -> dict | None:
 
 
 async def track_event(
-    user_id: int, event_name: str, source: str = "", payload: dict | None = None,
+    user_id: int,
+    event_name: str,
+    source: str = "",
+    payload: dict | None = None,
 ) -> None:
     try:
         c = await get_client()
-        await c.post("/analytics/track", json={
-            "user_id": user_id, "event_name": event_name,
-            "source": source, "payload": payload,
-        })
+        await c.post(
+            "/analytics/track",
+            json={
+                "user_id": user_id,
+                "event_name": event_name,
+                "source": source,
+                "payload": payload,
+            },
+        )
     except Exception as e:
         logger.warning("Failed to track event %s: %s", event_name, e)
 
@@ -597,33 +659,49 @@ async def get_weather(city: str) -> dict | None:
 
 async def get_weather_alert(weather_data: dict, species: str, pet_name: str = "") -> str | None:
     c = await get_client()
-    r = await c.post("/services/weather/alert", json={
-        "weather_data": weather_data, "species": species, "pet_name": pet_name,
-    })
+    r = await c.post(
+        "/services/weather/alert",
+        json={
+            "weather_data": weather_data,
+            "species": species,
+            "pet_name": pet_name,
+        },
+    )
     r.raise_for_status()
     return r.json()["alert"]
 
 
 async def get_food_norm(species: str, weight_kg: float | None = None, age_months: int | None = None) -> dict:
     c = await get_client()
-    r = await c.post("/services/norms/food", json={
-        "species": species, "weight_kg": weight_kg, "age_months": age_months,
-    })
+    r = await c.post(
+        "/services/norms/food",
+        json={
+            "species": species,
+            "weight_kg": weight_kg,
+            "age_months": age_months,
+        },
+    )
     r.raise_for_status()
     return r.json()
 
 
 async def get_progress_bar(current: float, target: float, width: int = 10) -> str:
     c = await get_client()
-    r = await c.post("/services/norms/progress_bar", json={
-        "current": current, "target": target, "width": width,
-    })
+    r = await c.post(
+        "/services/norms/progress_bar",
+        json={
+            "current": current,
+            "target": target,
+            "width": width,
+        },
+    )
     r.raise_for_status()
     return r.json()["bar"]
 
 
 async def get_feeding_chart(pet_name: str, entries: list[dict]) -> bytes | None:
     import base64
+
     c = await get_client()
     r = await c.post("/services/charts/feeding", json={"pet_name": pet_name, "entries": entries})
     r.raise_for_status()
@@ -633,6 +711,7 @@ async def get_feeding_chart(pet_name: str, entries: list[dict]) -> bytes | None:
 
 async def get_timeline_chart(pet_name: str, entries: list[dict]) -> bytes | None:
     import base64
+
     c = await get_client()
     r = await c.post("/services/charts/timeline", json={"pet_name": pet_name, "entries": entries})
     r.raise_for_status()
@@ -648,7 +727,10 @@ async def list_voice_notes(user_id: int) -> list[dict]:
 
 
 async def create_voice_note(
-    pet_id: int, user_id: int, file_id: str, transcription: str = "",
+    pet_id: int,
+    user_id: int,
+    file_id: str,
+    transcription: str = "",
 ) -> dict:
     c = await get_client()
     r = await c.post(
@@ -700,3 +782,56 @@ async def get_norms(user_id: int) -> dict:
     r = await c.get(f"/services/norms/{user_id}")
     r.raise_for_status()
     return r.json()
+
+
+# ══════════════ ADMIN ══════════════
+
+
+async def admin_overview() -> dict:
+    c = await get_client()
+    r = await c.get("/admin/overview")
+    r.raise_for_status()
+    return r.json()
+
+
+async def admin_finance() -> dict:
+    c = await get_client()
+    r = await c.get("/admin/finance")
+    r.raise_for_status()
+    return r.json()
+
+
+async def admin_users(limit: int = 8, offset: int = 0, query: str | None = None) -> dict:
+    c = await get_client()
+    params: dict = {"limit": limit, "offset": offset}
+    if query:
+        params["query"] = query
+    r = await c.get("/admin/users", params=params)
+    r.raise_for_status()
+    return r.json()
+
+
+async def admin_user_detail(user_id: int) -> dict | None:
+    c = await get_client()
+    r = await c.get(f"/admin/users/{user_id}")
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    return r.json()
+
+
+async def admin_broadcast_targets() -> list[int]:
+    c = await get_client()
+    r = await c.get("/admin/broadcast/targets")
+    r.raise_for_status()
+    return r.json()["user_ids"]
+
+
+# ══════════════ PRIVACY (152-ФЗ) ══════════════
+
+
+async def delete_user_data(user_id: int) -> dict:
+    c = await get_client()
+    r = await c.post(f"/privacy/delete_user/{user_id}")
+    r.raise_for_status()
+    return r.json()["deleted"]

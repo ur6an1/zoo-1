@@ -61,9 +61,7 @@ def _pet_limit_for_plan(plan_tier: str) -> int | None:
 async def get_or_create_settings(user_id: int) -> UserSettings:
     """Получает или создаёт настройки пользователя с авто-нормализацией тарифа."""
     async with async_session() as session:
-        result = await session.execute(
-            select(UserSettings).where(UserSettings.user_id == user_id)
-        )
+        result = await session.execute(select(UserSettings).where(UserSettings.user_id == user_id))
         settings = result.scalar()
         if not settings:
             settings = UserSettings(user_id=user_id, plan_tier=PLAN_FREE)
@@ -74,7 +72,8 @@ async def get_or_create_settings(user_id: int) -> UserSettings:
 
         changed = False
         expired = (
-            settings.is_premium and settings.premium_until
+            settings.is_premium
+            and settings.premium_until
             and settings.premium_until + timedelta(days=GRACE_DAYS) <= datetime.utcnow()
         )
         if expired:
@@ -117,9 +116,7 @@ async def check_ai_limit(user_id: int) -> tuple[bool, int]:
         return True, 999
 
     async with async_session() as session:
-        result = await session.execute(
-            select(UserSettings).where(UserSettings.user_id == user_id)
-        )
+        result = await session.execute(select(UserSettings).where(UserSettings.user_id == user_id))
         s = result.scalar()
         if not s:
             s = UserSettings(user_id=user_id, plan_tier=PLAN_FREE)
@@ -144,9 +141,7 @@ async def check_ai_limit(user_id: int) -> tuple[bool, int]:
 async def refund_ai_limit(user_id: int) -> None:
     """Возвращает 1 AI-запрос за неуспешный внешний вызов."""
     async with async_session() as session:
-        result = await session.execute(
-            select(UserSettings).where(UserSettings.user_id == user_id)
-        )
+        result = await session.execute(select(UserSettings).where(UserSettings.user_id == user_id))
         s = result.scalar()
         if not s:
             return
@@ -167,9 +162,7 @@ async def check_pet_limit(user_id: int) -> tuple[bool, int]:
         return True, 999
 
     async with async_session() as session:
-        result = await session.execute(
-            select(func.count(Pet.id)).where(Pet.user_id == user_id)
-        )
+        result = await session.execute(select(func.count(Pet.id)).where(Pet.user_id == user_id))
         count = int(result.scalar_one() or 0)
 
     return count < limit, max(limit - count, 0)
@@ -184,9 +177,7 @@ async def grant_premium(user_id: int, days: int = 30, plan_tier: str = PLAN_PRO)
         plan_tier = PLAN_PRO
 
     async with async_session() as session:
-        result = await session.execute(
-            select(UserSettings).where(UserSettings.user_id == user_id)
-        )
+        result = await session.execute(select(UserSettings).where(UserSettings.user_id == user_id))
         s = result.scalar()
         if not s:
             s = UserSettings(user_id=user_id)
@@ -209,9 +200,7 @@ async def grant_premium(user_id: int, days: int = 30, plan_tier: str = PLAN_PRO)
 async def revoke_premium(user_id: int) -> bool:
     """Отзывает подписку и возвращает на free-план."""
     async with async_session() as session:
-        result = await session.execute(
-            select(UserSettings).where(UserSettings.user_id == user_id)
-        )
+        result = await session.execute(select(UserSettings).where(UserSettings.user_id == user_id))
         s = result.scalar()
         if s:
             s.is_premium = False

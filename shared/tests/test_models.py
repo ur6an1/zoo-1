@@ -99,8 +99,12 @@ class TestPetSpeciesEmoji:
 class TestReminderProperties:
     def _make_reminder(self, category="feeding", repeat="once"):
         return Reminder(
-            id=1, pet_id=1, user_id=1,
-            category=category, title="Test", remind_at=None,
+            id=1,
+            pet_id=1,
+            user_id=1,
+            category=category,
+            title="Test",
+            remind_at=None,
             repeat=repeat,
         )
 

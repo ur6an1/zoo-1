@@ -15,7 +15,9 @@ class TestSettings:
         assert s.FREE_AI_LIMIT == 10
         assert s.FREE_PET_LIMIT == 2
         assert s.BOT_TIMEZONE == "Europe/Moscow"
-        assert s.OPENAI_MODEL == "gpt-4o-mini"
+        assert s.OPENROUTER_MODEL == "deepseek/deepseek-v4-flash"
+        assert s.OPENROUTER_VISION_MODEL == "openai/gpt-4o-mini"
+        assert s.OPENROUTER_TRANSCRIBE_MODEL == "openai/whisper-1"
 
     def test_parse_admin_ids_empty(self):
         s = Settings(BOT_TOKEN="t", DATABASE_URL="x", ADMIN_IDS="")

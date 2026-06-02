@@ -128,9 +128,7 @@ async def check_feature(user_id: int, feature: str = ""):
 
 @router.post("/toggle_weather/{user_id}")
 async def toggle_weather(user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(UserSettings).where(UserSettings.user_id == user_id)
-    )
+    result = await session.execute(select(UserSettings).where(UserSettings.user_id == user_id))
     settings = result.scalar_one_or_none()
     if not settings:
         settings = UserSettings(user_id=user_id)
@@ -149,9 +147,7 @@ async def update_user_settings(
     weather_notify: bool | None = None,
     session: AsyncSession = Depends(get_session),
 ):
-    result = await session.execute(
-        select(UserSettings).where(UserSettings.user_id == user_id)
-    )
+    result = await session.execute(select(UserSettings).where(UserSettings.user_id == user_id))
     settings = result.scalar_one_or_none()
     if not settings:
         settings = UserSettings(user_id=user_id)

@@ -6,9 +6,9 @@ from html import escape
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from backend.services.vision import compare_two_foods
 from zoo_shared.config import get_settings
 
-from backend.backend.services.vision import compare_two_foods
 from bot import api_client
 from bot.keyboards.keyboards import back_to_menu_kb, cancel_kb, photo_menu_kb
 from bot.states.states import CompareForm
@@ -18,10 +18,7 @@ router = Router(name="compare")
 
 
 def _no_ai_message() -> str:
-    return (
-        "⚠️ AI-функции временно недоступны.\n\n"
-        "Мы уже работаем над восстановлением. Попробуйте позже."
-    )
+    return "⚠️ AI-функции временно недоступны.\n\nМы уже работаем над восстановлением. Попробуйте позже."
 
 
 def _ai_limit_message() -> str:
@@ -56,9 +53,7 @@ async def cb_compare_start(callback: CallbackQuery, state: FSMContext):
 
     await state.set_state(CompareForm.waiting_photo_1)
     await callback.message.edit_text(
-        "⚖️ <b>Сравнение двух кормов</b>\n\n"
-        "📷 Отправьте фото <b>первого</b> корма 👇\n"
-        "(пачка, банка или этикетка)",
+        "⚖️ <b>Сравнение двух кормов</b>\n\n📷 Отправьте фото <b>первого</b> корма 👇\n(пачка, банка или этикетка)",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -84,8 +79,7 @@ async def compare_photo_1(message: Message, state: FSMContext, bot: Bot):
     await state.update_data(image_1=image_data)
     await state.set_state(CompareForm.waiting_photo_2)
     await message.answer(
-        "✅ Первое фото получено!\n\n"
-        "📷 Теперь отправьте фото <b>второго</b> корма 👇",
+        "✅ Первое фото получено!\n\n📷 Теперь отправьте фото <b>второго</b> корма 👇",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -95,8 +89,7 @@ async def compare_photo_1(message: Message, state: FSMContext, bot: Bot):
 async def compare_not_photo_1(message: Message):
     """Ожидали первое фото, получили не фото."""
     await message.answer(
-        "📷 Пожалуйста, отправьте <b>фото первого корма</b>.\n"
-        "Или нажмите «Отмена».",
+        "📷 Пожалуйста, отправьте <b>фото первого корма</b>.\nИли нажмите «Отмена».",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -141,8 +134,7 @@ async def compare_photo_2(message: Message, state: FSMContext, bot: Bot):
 
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
     processing_msg = await message.answer(
-        "🔍 <b>AI сравнивает два корма...</b>\n\n"
-        "⏳ Глубокий анализ — несколько секунд...",
+        "🔍 <b>AI сравнивает два корма...</b>\n\n⏳ Глубокий анализ — несколько секунд...",
         parse_mode="HTML",
     )
 
@@ -164,8 +156,7 @@ async def compare_photo_2(message: Message, state: FSMContext, bot: Bot):
     else:
         await api_client.refund_ai_limit(message.from_user.id)
         await processing_msg.edit_text(
-            "😕 AI-сервис временно недоступен или не смог обработать фото.\n"
-            "Попробуйте позже.",
+            "😕 AI-сервис временно недоступен или не смог обработать фото.\nПопробуйте позже.",
             reply_markup=photo_menu_kb,
         )
 
@@ -174,8 +165,7 @@ async def compare_photo_2(message: Message, state: FSMContext, bot: Bot):
 async def compare_not_photo_2(message: Message):
     """Ожидали второе фото, получили не фото."""
     await message.answer(
-        "📷 Пожалуйста, отправьте <b>фото второго корма</b>.\n"
-        "Или нажмите «Отмена».",
+        "📷 Пожалуйста, отправьте <b>фото второго корма</b>.\nИли нажмите «Отмена».",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )

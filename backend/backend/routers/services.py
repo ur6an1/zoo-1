@@ -118,9 +118,7 @@ async def timeline_chart(body: ChartRequest):
 
 @router.get("/norms/{user_id}")
 async def user_norms(user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Pet).where(Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Pet).where(Pet.user_id == user_id))
     pets = result.scalars().all()
     if not pets:
         return {"no_pets": True, "text": ""}
@@ -190,18 +188,14 @@ async def user_norms(user_id: int, session: AsyncSession = Depends(get_session))
 @router.get("/voice_notes/by_user/{user_id}")
 async def list_voice_notes_by_user(user_id: int, session: AsyncSession = Depends(get_session)):
     notes_result = await session.execute(
-        select(VoiceNote).where(VoiceNote.user_id == user_id)
-        .order_by(VoiceNote.created_at.desc())
-        .limit(10)
+        select(VoiceNote).where(VoiceNote.user_id == user_id).order_by(VoiceNote.created_at.desc()).limit(10)
     )
     notes = notes_result.scalars().all()
 
     pet_ids = {n.pet_id for n in notes}
     pet_map: dict[int, str] = {}
     if pet_ids:
-        pets_result = await session.execute(
-            select(Pet).where(Pet.id.in_(pet_ids))
-        )
+        pets_result = await session.execute(select(Pet).where(Pet.id.in_(pet_ids)))
         for p in pets_result.scalars().all():
             pet_map[p.id] = f"{p.species_emoji} {p.name}"
 
@@ -221,16 +215,13 @@ async def list_voice_notes_by_user(user_id: int, session: AsyncSession = Depends
 
 @router.get("/voice_notes/{pet_id}")
 async def list_voice_notes(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id))
     pet = result.scalar_one_or_none()
     if not pet:
         return {"notes": [], "pet_name": ""}
 
     notes_result = await session.execute(
-        select(VoiceNote).where(VoiceNote.pet_id == pet_id)
-        .order_by(VoiceNote.created_at.desc())
+        select(VoiceNote).where(VoiceNote.pet_id == pet_id).order_by(VoiceNote.created_at.desc())
     )
     notes = notes_result.scalars().all()
 
@@ -238,7 +229,8 @@ async def list_voice_notes(pet_id: int, user_id: int, session: AsyncSession = De
         "pet_name": pet.name,
         "notes": [
             {
-                "id": n.id, "file_id": n.file_id,
+                "id": n.id,
+                "file_id": n.file_id,
                 "transcription": n.transcription,
                 "created_at": n.created_at.isoformat(),
             }
@@ -249,36 +241,39 @@ async def list_voice_notes(pet_id: int, user_id: int, session: AsyncSession = De
 
 @router.post("/voice_notes")
 async def create_voice_note(
-    pet_id: int, user_id: int, file_id: str, transcription: str = "",
+    pet_id: int,
+    user_id: int,
+    file_id: str,
+    transcription: str = "",
     session: AsyncSession = Depends(get_session),
 ):
-    pet_result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id)
-    )
+    pet_result = await session.execute(select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id))
     pet = pet_result.scalar_one_or_none()
     if not pet:
         return None
 
     note = VoiceNote(
-        pet_id=pet_id, user_id=user_id,
-        file_id=file_id, transcription=transcription,
+        pet_id=pet_id,
+        user_id=user_id,
+        file_id=file_id,
+        transcription=transcription,
     )
     session.add(note)
     await session.commit()
     await session.refresh(note)
     return {
-        "id": note.id, "pet_id": note.pet_id,
+        "id": note.id,
+        "pet_id": note.pet_id,
         "pet_name": pet.name,
-        "file_id": note.file_id, "transcription": note.transcription,
+        "file_id": note.file_id,
+        "transcription": note.transcription,
         "created_at": note.created_at.isoformat(),
     }
 
 
 @router.delete("/voice_notes/{note_id}", status_code=204)
 async def delete_voice_note(note_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(VoiceNote).where(VoiceNote.id == note_id, VoiceNote.user_id == user_id)
-    )
+    result = await session.execute(select(VoiceNote).where(VoiceNote.id == note_id, VoiceNote.user_id == user_id))
     note = result.scalar_one_or_none()
     if note:
         await session.delete(note)

@@ -101,9 +101,7 @@ class ProcessedPayment(Base):
     """Идемпотентность платежей: чтобы не начислять подписку повторно."""
 
     __tablename__ = "processed_payments"
-    __table_args__ = (
-        UniqueConstraint("provider", "payment_id", name="uq_processed_payments_provider_payment"),
-    )
+    __table_args__ = (UniqueConstraint("provider", "payment_id", name="uq_processed_payments_provider_payment"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     provider: Mapped[str] = mapped_column(String(20), index=True)
@@ -117,9 +115,7 @@ class PendingPayment(Base):
     """Платежи, ожидающие автоматического подтверждения."""
 
     __tablename__ = "pending_payments"
-    __table_args__ = (
-        UniqueConstraint("provider", "payment_id", name="uq_pending_payments_provider_payment"),
-    )
+    __table_args__ = (UniqueConstraint("provider", "payment_id", name="uq_pending_payments_provider_payment"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     provider: Mapped[str] = mapped_column(String(20), index=True)
@@ -187,8 +183,11 @@ class Reminder(Base):
     @property
     def repeat_text(self) -> str:
         texts = {
-            "once": "разово", "daily": "ежедневно", "weekly": "еженедельно",
-            "monthly": "ежемесячно", "yearly": "ежегодно",
+            "once": "разово",
+            "daily": "ежедневно",
+            "weekly": "еженедельно",
+            "monthly": "ежемесячно",
+            "yearly": "ежегодно",
         }
         return texts.get(self.repeat, self.repeat)
 

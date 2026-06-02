@@ -7,6 +7,8 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("BOT_TOKEN", "fake:token")
 os.environ.setdefault("REDIS_URL", "")
 
+import backend.services.provider_health as ph
+import pytest
 from backend.services.provider_health import _CACHE, _TTL, _is_fresh, mark_ai_unavailable
 
 
@@ -52,3 +54,46 @@ class TestCacheStructure:
 
         assert _CACHE["ai"]["status"] is False
         assert _CACHE["ai"]["checked_at"] is not None
+
+
+class TestCheckAiOpenRouterOnly:
+    @pytest.mark.asyncio
+    async def test_check_ai_returns_false_without_openrouter_key(self, monkeypatch):
+        monkeypatch.setattr(ph._settings, "OPENROUTER_API_KEY", "")
+        result = await ph._check_ai()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_check_ai_uses_openrouter_url(self, monkeypatch):
+        monkeypatch.setattr(ph._settings, "OPENROUTER_API_KEY", "sk-test")
+        monkeypatch.setattr(ph._settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        monkeypatch.setattr(ph._settings, "OPENROUTER_MODEL", "openai/gpt-4o-mini")
+        monkeypatch.setattr(ph._settings, "OPENROUTER_SITE_URL", "")
+        monkeypatch.setattr(ph._settings, "OPENROUTER_APP_NAME", "")
+
+        captured: dict = {}
+
+        class _Resp:
+            status = 200
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                pass
+
+        class _Sess:
+            def post(self, url, **kwargs):
+                captured["url"] = url
+                return _Resp()
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                pass
+
+        monkeypatch.setattr(ph.aiohttp, "ClientSession", lambda: _Sess())
+        result = await ph._check_ai()
+        assert result is True
+        assert "openrouter.ai" in captured.get("url", "")

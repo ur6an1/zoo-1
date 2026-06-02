@@ -52,16 +52,18 @@ async def search_vet_clinics(lat: float, lon: float, radius_m: int = 5000, limit
             dist = _haversine(lat, lon, c_lat, c_lon)
             name = tags.get("name", tags.get("name:ru", "Ветклиника"))
 
-            clinics.append({
-                "name": name,
-                "lat": c_lat,
-                "lon": c_lon,
-                "distance_m": int(dist),
-                "phone": tags.get("phone", tags.get("contact:phone", "")),
-                "website": tags.get("website", tags.get("contact:website", "")),
-                "opening_hours": tags.get("opening_hours", ""),
-                "address": _build_address(tags),
-            })
+            clinics.append(
+                {
+                    "name": name,
+                    "lat": c_lat,
+                    "lon": c_lon,
+                    "distance_m": int(dist),
+                    "phone": tags.get("phone", tags.get("contact:phone", "")),
+                    "website": tags.get("website", tags.get("contact:website", "")),
+                    "opening_hours": tags.get("opening_hours", ""),
+                    "address": _build_address(tags),
+                }
+            )
 
         clinics.sort(key=lambda c: c["distance_m"])
         return clinics[:limit]

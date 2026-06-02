@@ -5,14 +5,14 @@ import logging
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-
-from backend.backend.services.clinics import search_and_format
-from backend.backend.services.content import (
+from backend.services.clinics import search_and_format
+from backend.services.content import (
     EMERGENCY_GENERAL,
     EMERGENCY_INJURY,
     EMERGENCY_OVERHEAT,
     EMERGENCY_POISONING,
 )
+
 from bot.keyboards.keyboards import back_to_menu_kb, clinic_radius_kb, emergency_kb, location_kb, main_menu_kb
 from bot.states.states import ClinicSearchForm
 from bot.utils.helpers import callback_int
@@ -24,8 +24,7 @@ router = Router(name="emergency")
 @router.message(F.text == "🆘 Экстренная помощь")
 async def emergency_menu(message: Message):
     await message.answer(
-        "🆘 <b>Экстренная помощь</b>\n\n"
-        "Выберите ситуацию или найдите ближайшую ветклинику:",
+        "🆘 <b>Экстренная помощь</b>\n\nВыберите ситуацию или найдите ближайшую ветклинику:",
         parse_mode="HTML",
         reply_markup=emergency_kb,
     )
@@ -34,8 +33,7 @@ async def emergency_menu(message: Message):
 @router.callback_query(F.data == "sos:menu")
 async def emergency_menu_cb(callback: CallbackQuery):
     await callback.message.edit_text(
-        "🆘 <b>Экстренная помощь</b>\n\n"
-        "Выберите ситуацию или найдите ближайшую ветклинику:",
+        "🆘 <b>Экстренная помощь</b>\n\nВыберите ситуацию или найдите ближайшую ветклинику:",
         parse_mode="HTML",
         reply_markup=emergency_kb,
     )
@@ -64,8 +62,7 @@ async def cb_sos_clinic_rated(callback: CallbackQuery, state: FSMContext):
     """Поиск клиник с выбором радиуса."""
     await state.set_state(ClinicSearchForm.waiting_filters)
     await callback.message.edit_text(
-        "🏥 <b>Поиск ветклиник</b>\n\n"
-        "Выберите радиус поиска:",
+        "🏥 <b>Поиск ветклиник</b>\n\nВыберите радиус поиска:",
         parse_mode="HTML",
         reply_markup=clinic_radius_kb,
     )
@@ -82,8 +79,7 @@ async def cb_clinic_radius(callback: CallbackQuery, state: FSMContext):
     await state.update_data(clinic_radius=radius)
     await state.set_state(ClinicSearchForm.waiting_location)
     await callback.message.answer(
-        f"🏥 Радиус: <b>{radius // 1000} км</b>\n\n"
-        "📍 Теперь отправьте местоположение:",
+        f"🏥 Радиус: <b>{radius // 1000} км</b>\n\n📍 Теперь отправьте местоположение:",
         parse_mode="HTML",
         reply_markup=location_kb,
     )

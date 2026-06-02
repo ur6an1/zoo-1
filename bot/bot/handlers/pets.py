@@ -48,14 +48,12 @@ async def my_pets(message: Message):
 
     if not pets:
         await message.answer(
-            "🐾 У вас пока нет питомцев.\n\n"
-            "Давайте добавим вашего первого друга! 🎉",
+            "🐾 У вас пока нет питомцев.\n\nДавайте добавим вашего первого друга! 🎉",
             reply_markup=pets_list_kb([], action="view"),
         )
     else:
         await message.answer(
-            f"🐾 <b>Ваши питомцы</b> ({len(pets)}):\n\n"
-            "Выберите питомца для просмотра профиля:",
+            f"🐾 <b>Ваши питомцы</b> ({len(pets)}):\n\nВыберите питомца для просмотра профиля:",
             parse_mode="HTML",
             reply_markup=pets_list_kb(pets, action="view"),
         )
@@ -147,8 +145,7 @@ async def cb_pet_add(callback: CallbackQuery, state: FSMContext):
     await api_client.track_event(callback.from_user.id, "onboarding_started", source="pet_add")
     await state.set_state(PetForm.name)
     await callback.message.edit_text(
-        "🐾 <b>Добавление питомца</b>\n\n"
-        "Как зовут вашего питомца? Введите имя:",
+        "🐾 <b>Добавление питомца</b>\n\nКак зовут вашего питомца? Введите имя:",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -169,8 +166,7 @@ async def pet_name(message: Message, state: FSMContext):
     await state.update_data(name=name)
     await state.set_state(PetForm.species)
     await message.answer(
-        f"Отлично! <b>{name}</b> — замечательное имя! 🥰\n\n"
-        "Выберите вид питомца:",
+        f"Отлично! <b>{name}</b> — замечательное имя! 🥰\n\nВыберите вид питомца:",
         parse_mode="HTML",
         reply_markup=species_kb,
     )
@@ -183,9 +179,7 @@ async def pet_species(callback: CallbackQuery, state: FSMContext):
     await state.update_data(species=species)
     await state.set_state(PetForm.breed)
     await callback.message.edit_text(
-        f"Вид: <b>{species}</b> ✅\n\n"
-        "Какой породы ваш питомец?\n"
-        "Напишите породу или нажмите «Пропустить»:",
+        f"Вид: <b>{species}</b> ✅\n\nКакой породы ваш питомец?\nНапишите породу или нажмите «Пропустить»:",
         parse_mode="HTML",
         reply_markup=skip_kb,
     )
@@ -249,8 +243,7 @@ async def pet_birth_date(message: Message, state: FSMContext):
     d = parse_date(message.text)
     if d is None:
         await message.answer(
-            "⚠️ Неверный формат даты.\n"
-            "Введите дату в формате <b>ДД.ММ.ГГГГ</b> (например, 15.03.2020):",
+            "⚠️ Неверный формат даты.\nВведите дату в формате <b>ДД.ММ.ГГГГ</b> (например, 15.03.2020):",
             parse_mode="HTML",
             reply_markup=skip_kb,
         )
@@ -274,9 +267,7 @@ async def pet_weight_skip(callback: CallbackQuery, state: FSMContext):
     await state.update_data(weight=None)
     await state.set_state(PetForm.photo)
     await callback.message.edit_text(
-        "Вес: пропущено ✅\n\n"
-        "📷 Отправьте фото вашего питомца\n"
-        "или нажмите «Пропустить»:",
+        "Вес: пропущено ✅\n\n📷 Отправьте фото вашего питомца\nили нажмите «Пропустить»:",
         parse_mode="HTML",
         reply_markup=skip_kb,
     )
@@ -289,8 +280,7 @@ async def pet_weight(message: Message, state: FSMContext):
     w = parse_weight(message.text)
     if w is None:
         await message.answer(
-            "⚠️ Неверный формат веса.\n"
-            "Введите число от 0.01 до 999 (в кг), например: <b>4.5</b>",
+            "⚠️ Неверный формат веса.\nВведите число от 0.01 до 999 (в кг), например: <b>4.5</b>",
             parse_mode="HTML",
             reply_markup=skip_kb,
         )
@@ -299,9 +289,7 @@ async def pet_weight(message: Message, state: FSMContext):
     await state.update_data(weight=w)
     await state.set_state(PetForm.photo)
     await message.answer(
-        f"Вес: <b>{w} кг</b> ✅\n\n"
-        "📷 Отправьте фото вашего питомца\n"
-        "или нажмите «Пропустить»:",
+        f"Вес: <b>{w} кг</b> ✅\n\n📷 Отправьте фото вашего питомца\nили нажмите «Пропустить»:",
         parse_mode="HTML",
         reply_markup=skip_kb,
     )
@@ -662,10 +650,10 @@ async def cb_pet_export(callback: CallbackQuery):
     pet = export["pet"]
 
     lines = []
-    lines.append(f"{'='*50}")
+    lines.append(f"{'=' * 50}")
     lines.append(f"КАРТОЧКА ПИТОМЦА: {pet['name']}")
     lines.append(f"Экспорт: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
-    lines.append(f"{'='*50}\n")
+    lines.append(f"{'=' * 50}\n")
 
     lines.append("[ПРОФИЛЬ]")
     lines.append(f"Имя: {pet['name']}")
@@ -705,7 +693,7 @@ async def cb_pet_export(callback: CallbackQuery):
         for a in allergies:
             lines.append(f"  {a['allergen']} — {a.get('reaction') or '—'}")
 
-    lines.append(f"\n{'='*50}")
+    lines.append(f"\n{'=' * 50}")
     lines.append("Сгенерировано ботом ZooBuddy")
 
     content = "\n".join(lines)
@@ -752,7 +740,7 @@ async def cb_pet_export_pdf(callback: CallbackQuery):
 
     pet = export["pet"]
 
-    from backend.backend.services.pdf_export import generate_pet_pdf
+    from backend.services.pdf_export import generate_pet_pdf
 
     pet_data = {
         "name": pet["name"],
@@ -764,16 +752,27 @@ async def cb_pet_export_pdf(callback: CallbackQuery):
         "target_weight": pet.get("target_weight"),
     }
 
-    vac_data = [{"name": v["name"], "date_done": format_date(v["date_done"]),
-                 "next_date": format_date(v.get("next_date")), "notes": v.get("notes", "")}
-                for v in export.get("vaccinations", [])]
-    visit_data = [{"visit_date": format_date(v["visit_date"]), "diagnosis": v.get("diagnosis", ""),
-                   "treatment": v.get("treatment", "")}
-                  for v in export.get("vet_visits", [])]
-    weight_data = [{"weight": w["weight"], "recorded_at": format_date(w["recorded_at"])}
-                   for w in export.get("weight_records", [])]
-    allergy_data = [{"allergen": a["allergen"], "reaction": a.get("reaction", "")}
-                    for a in export.get("allergies", [])]
+    vac_data = [
+        {
+            "name": v["name"],
+            "date_done": format_date(v["date_done"]),
+            "next_date": format_date(v.get("next_date")),
+            "notes": v.get("notes", ""),
+        }
+        for v in export.get("vaccinations", [])
+    ]
+    visit_data = [
+        {
+            "visit_date": format_date(v["visit_date"]),
+            "diagnosis": v.get("diagnosis", ""),
+            "treatment": v.get("treatment", ""),
+        }
+        for v in export.get("vet_visits", [])
+    ]
+    weight_data = [
+        {"weight": w["weight"], "recorded_at": format_date(w["recorded_at"])} for w in export.get("weight_records", [])
+    ]
+    allergy_data = [{"allergen": a["allergen"], "reaction": a.get("reaction", "")} for a in export.get("allergies", [])]
 
     pdf_bytes = generate_pet_pdf(pet_data, vac_data, visit_data, weight_data, allergy_data)
 

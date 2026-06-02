@@ -1,0 +1,4 @@
+# Dev-only: CD deploys via `git archive HEAD` (see .github/workflows/cd.yml).
+# export-ignore keeps this out of the prod tarball while leaving it in the
+# repo for local development (docker compose auto-merges it locally).
+docker-compose.override.yml export-ignore

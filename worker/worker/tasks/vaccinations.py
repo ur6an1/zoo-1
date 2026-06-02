@@ -45,9 +45,7 @@ async def check_vaccination_schedule():
             if uid not in notifications:
                 notifications[uid] = []
             days_overdue = (today - v.next_date).days
-            notifications[uid].append(
-                f"🔴 <b>{pet.name}</b>: прививка «{v.name}» просрочена на {days_overdue} дн.!"
-            )
+            notifications[uid].append(f"🔴 <b>{pet.name}</b>: прививка «{v.name}» просрочена на {days_overdue} дн.!")
 
         for v in upcoming:
             pet = await session.get(Pet, v.pet_id)
@@ -58,13 +56,9 @@ async def check_vaccination_schedule():
                 notifications[uid] = []
             days_left = (v.next_date - today).days
             if days_left == 0:
-                notifications[uid].append(
-                    f"🟡 <b>{pet.name}</b>: прививка «{v.name}» — <b>сегодня!</b>"
-                )
+                notifications[uid].append(f"🟡 <b>{pet.name}</b>: прививка «{v.name}» — <b>сегодня!</b>")
             else:
-                notifications[uid].append(
-                    f"🟡 <b>{pet.name}</b>: прививка «{v.name}» через {days_left} дн."
-                )
+                notifications[uid].append(f"🟡 <b>{pet.name}</b>: прививка «{v.name}» через {days_left} дн.")
 
     for user_id, lines in notifications.items():
         text = "💉 <b>Напоминание о прививках</b>\n\n" + "\n".join(lines)

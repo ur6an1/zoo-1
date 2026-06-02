@@ -2,6 +2,12 @@ x-shared-env: &shared-env
   DATABASE_URL: postgresql+asyncpg://zoo:${POSTGRES_PASSWORD:-changeme}@postgres:5432/zoo_bot
   REDIS_URL: redis://redis:6379/0
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -28,21 +34,36 @@ services:
       interval: 5s
       retries: 5
 
+  # One-shot: применяет миграции до старта сервисов (вызывается из CD:
+  # docker compose run --rm migrate). command переопределяет CMD образа
+  # backend (alembic + uvicorn) — здесь нужны только миграции.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    restart: "no"
+    environment:
+      <<: *shared-env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       <<: *shared-env
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-deepseek/deepseek-v4-flash}
+      OPENROUTER_VISION_MODEL: ${OPENROUTER_VISION_MODEL:-openai/gpt-4o-mini}
+      OPENROUTER_TRANSCRIBE_MODEL: ${OPENROUTER_TRANSCRIBE_MODEL:-openai/whisper-1}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-}
       OPENROUTER_APP_NAME: ${OPENROUTER_APP_NAME:-zoo_bot}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-whisper-1}
       WEATHER_API_KEY: ${WEATHER_API_KEY:-}
       YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
       YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
@@ -68,19 +89,20 @@ services:
       context: .
       dockerfile: docker/bot.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       <<: *shared-env
       BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}
       BACKEND_URL: http://backend:8000
+      ADMIN_IDS: ${ADMIN_IDS:-}
       BOT_TIMEZONE: ${BOT_TIMEZONE:-Europe/Moscow}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-deepseek/deepseek-v4-flash}
+      OPENROUTER_VISION_MODEL: ${OPENROUTER_VISION_MODEL:-openai/gpt-4o-mini}
+      OPENROUTER_TRANSCRIBE_MODEL: ${OPENROUTER_TRANSCRIBE_MODEL:-openai/whisper-1}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       OPENROUTER_SITE_URL: ${OPENROUTER_SITE_URL:-}
       OPENROUTER_APP_NAME: ${OPENROUTER_APP_NAME:-zoo_bot}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-whisper-1}
       AI_MAX_TOKENS_VISION: ${AI_MAX_TOKENS_VISION:-1600}
       AI_MAX_TOKENS_TEXT: ${AI_MAX_TOKENS_TEXT:-1800}
     depends_on:
@@ -94,6 +116,7 @@ services:
       context: .
       dockerfile: docker/worker.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       <<: *shared-env
       BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}

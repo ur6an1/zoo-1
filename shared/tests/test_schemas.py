@@ -40,8 +40,12 @@ class TestPetSchemas:
 
     def test_pet_create_full(self):
         p = PetCreate(
-            user_id=1, name="Rex", species="собака",
-            breed="Лабрадор", birth_date=date(2020, 1, 1), weight=30.0,
+            user_id=1,
+            name="Rex",
+            species="собака",
+            breed="Лабрадор",
+            birth_date=date(2020, 1, 1),
+            weight=30.0,
         )
         assert p.breed == "Лабрадор"
         assert p.weight == 30.0
@@ -53,9 +57,16 @@ class TestPetSchemas:
 
     def test_pet_read(self):
         p = PetRead(
-            id=1, user_id=1, name="Rex", species="собака",
-            breed="", birth_date=None, weight=None, target_weight=None,
-            photo_file_id=None, created_at=datetime.now(),
+            id=1,
+            user_id=1,
+            name="Rex",
+            species="собака",
+            breed="",
+            birth_date=None,
+            weight=None,
+            target_weight=None,
+            photo_file_id=None,
+            created_at=datetime.now(),
         )
         assert p.species_emoji == "🐾"
 
@@ -63,7 +74,9 @@ class TestPetSchemas:
 class TestReminderSchemas:
     def test_reminder_create(self):
         r = ReminderCreate(
-            user_id=1, pet_id=1, title="Feed",
+            user_id=1,
+            pet_id=1,
+            title="Feed",
             remind_at=datetime(2024, 6, 1, 8, 0),
         )
         assert r.category == "custom"
@@ -71,9 +84,16 @@ class TestReminderSchemas:
 
     def test_reminder_read(self):
         r = ReminderRead(
-            id=1, user_id=1, pet_id=1, title="Feed", description="",
-            category="feeding", remind_at=datetime.now(), repeat="daily",
-            is_active=True, created_at=datetime.now(),
+            id=1,
+            user_id=1,
+            pet_id=1,
+            title="Feed",
+            description="",
+            category="feeding",
+            remind_at=datetime.now(),
+            repeat="daily",
+            is_active=True,
+            created_at=datetime.now(),
         )
         assert r.is_active is True
 
@@ -85,9 +105,13 @@ class TestMedicalSchemas:
 
     def test_vaccination_read(self):
         v = VaccinationRead(
-            id=1, pet_id=1, name="Бешенство",
-            date_done=date(2024, 1, 1), next_date=date(2025, 1, 1),
-            notes="", created_at=datetime.now(),
+            id=1,
+            pet_id=1,
+            name="Бешенство",
+            date_done=date(2024, 1, 1),
+            next_date=date(2025, 1, 1),
+            notes="",
+            created_at=datetime.now(),
         )
         assert v.next_date == date(2025, 1, 1)
 
@@ -97,8 +121,12 @@ class TestMedicalSchemas:
 
     def test_vet_visit_read(self):
         v = VetVisitRead(
-            id=1, pet_id=1, visit_date=date(2024, 6, 1),
-            diagnosis="Здоров", treatment="", notes="",
+            id=1,
+            pet_id=1,
+            visit_date=date(2024, 6, 1),
+            diagnosis="Здоров",
+            treatment="",
+            notes="",
             created_at=datetime.now(),
         )
         assert v.diagnosis == "Здоров"
@@ -120,9 +148,13 @@ class TestFoodSchemas:
 
     def test_food_entry_read(self):
         f = FoodEntryRead(
-            id=1, pet_id=1, food_name="Корм",
-            portion="100г", portion_grams=100.0,
-            meal_time=datetime.now(), notes="",
+            id=1,
+            pet_id=1,
+            food_name="Корм",
+            portion="100г",
+            portion_grams=100.0,
+            meal_time=datetime.now(),
+            notes="",
         )
         assert f.food_name == "Корм"
 
@@ -156,8 +188,12 @@ class TestPaymentSchemas:
 class TestSubscriptionSchemas:
     def test_subscription_status(self):
         s = SubscriptionStatus(
-            user_id=1, plan_tier="pro", is_premium=True,
-            premium_until=datetime.now(), ai_requests_today=5, weather_notify=True,
+            user_id=1,
+            plan_tier="pro",
+            is_premium=True,
+            premium_until=datetime.now(),
+            ai_requests_today=5,
+            weather_notify=True,
         )
         assert s.is_premium is True
 

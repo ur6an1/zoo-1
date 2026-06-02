@@ -123,10 +123,15 @@ async def list_pending(provider: str, session: AsyncSession = Depends(get_sessio
     rows = result.scalars().all()
     return [
         {
-            "id": p.id, "provider": p.provider, "payment_id": p.payment_id,
-            "user_id": p.user_id, "plan_key": p.plan_key,
-            "amount_value": p.amount_value, "currency": p.currency,
-            "status": p.status, "last_error": p.last_error,
+            "id": p.id,
+            "provider": p.provider,
+            "payment_id": p.payment_id,
+            "user_id": p.user_id,
+            "plan_key": p.plan_key,
+            "amount_value": p.amount_value,
+            "currency": p.currency,
+            "status": p.status,
+            "last_error": p.last_error,
             "created_at": p.created_at.isoformat(),
         }
         for p in rows
@@ -145,9 +150,14 @@ async def get_pending(provider: str, payment_id: str, session: AsyncSession = De
     if not p:
         return None
     return {
-        "id": p.id, "provider": p.provider, "payment_id": p.payment_id,
-        "user_id": p.user_id, "plan_key": p.plan_key,
-        "amount_value": p.amount_value, "currency": p.currency,
-        "status": p.status, "last_error": p.last_error,
+        "id": p.id,
+        "provider": p.provider,
+        "payment_id": p.payment_id,
+        "user_id": p.user_id,
+        "plan_key": p.plan_key,
+        "amount_value": p.amount_value,
+        "currency": p.currency,
+        "status": p.status,
+        "last_error": p.last_error,
         "created_at": p.created_at.isoformat(),
     }

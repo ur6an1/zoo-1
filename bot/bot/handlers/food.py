@@ -88,8 +88,7 @@ async def cb_food_allergies(callback: CallbackQuery):
 @router.callback_query(F.data == "food:analytics")
 async def cb_food_analytics(callback: CallbackQuery):
     await callback.message.edit_text(
-        "📊 <b>Аналитика питания</b>\n\n"
-        "Выберите, что хотите посмотреть:",
+        "📊 <b>Аналитика питания</b>\n\nВыберите, что хотите посмотреть:",
         parse_mode="HTML",
         reply_markup=food_analytics_kb,
     )
@@ -147,8 +146,7 @@ async def meal_name(message: Message, state: FSMContext):
     await state.update_data(food_name=name)
     await state.set_state(FoodForm.portion)
     await message.answer(
-        "⚖️ Укажите порцию (например: «100 г», «1/2 пакетика»)\n"
-        "или напишите <b>-</b> чтобы пропустить:",
+        "⚖️ Укажите порцию (например: «100 г», «1/2 пакетика»)\nили напишите <b>-</b> чтобы пропустить:",
         parse_mode="HTML",
     )
 
@@ -217,9 +215,7 @@ async def cb_meal_list(callback: CallbackQuery):
                 f"• <b>{escape(e['food_name'])}</b> ({escape(pet_map.get(e.get('pet_id', 0), '?'))})\n"
                 f"  ⚖️ {escape(e.get('portion', '')) or '—'} | 🕐 {format_datetime(e.get('meal_time', ''))}"
             )
-        await callback.message.edit_text(
-            "\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb
-        )
+        await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb)
     await callback.answer()
 
 
@@ -278,8 +274,7 @@ async def water_amount(message: Message, state: FSMContext):
     entry = await api_client.create_water_entry(message.from_user.id, data["pet_id"], amount)
 
     await message.answer(
-        f"✅ Записано: <b>{amount} мл</b> воды\n"
-        f"🕐 {format_datetime(entry.get('recorded_at', ''))}",
+        f"✅ Записано: <b>{amount} мл</b> воды\n🕐 {format_datetime(entry.get('recorded_at', ''))}",
         parse_mode="HTML",
         reply_markup=back_to_menu_kb,
     )
@@ -306,14 +301,10 @@ async def cb_water_list(callback: CallbackQuery):
     else:
         lines = ["💧 <b>История потребления воды</b>\n"]
         for e in all_entries[:20]:
-            pet_label = escape(pet_map.get(e.get('pet_id', 0), '?'))
-            dt_str = format_datetime(e.get('recorded_at', ''))
-            lines.append(
-                f"• {pet_label}: <b>{e['amount_ml']} мл</b> — {dt_str}"
-            )
-        await callback.message.edit_text(
-            "\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb
-        )
+            pet_label = escape(pet_map.get(e.get("pet_id", 0), "?"))
+            dt_str = format_datetime(e.get("recorded_at", ""))
+            lines.append(f"• {pet_label}: <b>{e['amount_ml']} мл</b> — {dt_str}")
+        await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb)
     await callback.answer()
 
 
@@ -414,20 +405,14 @@ async def cb_allergy_list(callback: CallbackQuery):
     allergies = await api_client.list_allergies_by_user(callback.from_user.id)
 
     if not allergies:
-        await callback.message.edit_text(
-            "⚠️ Аллергий не зарегистрировано.", reply_markup=back_to_menu_kb
-        )
+        await callback.message.edit_text("⚠️ Аллергий не зарегистрировано.", reply_markup=back_to_menu_kb)
     else:
         lines = ["⚠️ <b>Аллергии и непереносимости</b>\n"]
         for a in allergies:
-            lines.append(
-                f"• <b>{escape(a['allergen'])}</b>\n"
-                f"  🤒 {escape(a.get('reaction', '')) or '—'}"
-            )
+            lines.append(f"• <b>{escape(a['allergen'])}</b>\n  🤒 {escape(a.get('reaction', '')) or '—'}")
         lines.append("\n🗑 <i>Нажмите, чтобы удалить:</i>")
         await callback.message.edit_text(
-            "\n".join(lines), parse_mode="HTML",
-            reply_markup=allergy_list_kb([SimpleNamespace(**a) for a in allergies])
+            "\n".join(lines), parse_mode="HTML", reply_markup=allergy_list_kb([SimpleNamespace(**a) for a in allergies])
         )
     await callback.answer()
 
@@ -559,9 +544,7 @@ async def cb_food_today(callback: CallbackQuery):
     else:
         lines.append("💧 Записей о воде нет")
 
-    await callback.message.edit_text(
-        "\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb
-    )
+    await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb)
     await callback.answer()
 
 
@@ -598,15 +581,29 @@ async def cb_food_chart_week(callback: CallbackQuery):
         await callback.answer("Нет данных за последнюю неделю", show_alert=True)
         return
 
-    food_ns = [SimpleNamespace(pet_id=f.get("_pet_id", f.get("pet_id")),
-               food_name=f.get("food_name", ""), portion=f.get("portion", ""),
-               portion_grams=f.get("portion_grams"), meal_time=datetime.fromisoformat(f["meal_time"]))
-               for f in all_food if f.get("meal_time")]
-    water_ns = [SimpleNamespace(pet_id=w.get("_pet_id", w.get("pet_id")),
-                amount_ml=w.get("amount_ml", 0), recorded_at=datetime.fromisoformat(w["recorded_at"]))
-                for w in all_water if w.get("recorded_at")]
+    food_ns = [
+        SimpleNamespace(
+            pet_id=f.get("_pet_id", f.get("pet_id")),
+            food_name=f.get("food_name", ""),
+            portion=f.get("portion", ""),
+            portion_grams=f.get("portion_grams"),
+            meal_time=datetime.fromisoformat(f["meal_time"]),
+        )
+        for f in all_food
+        if f.get("meal_time")
+    ]
+    water_ns = [
+        SimpleNamespace(
+            pet_id=w.get("_pet_id", w.get("pet_id")),
+            amount_ml=w.get("amount_ml", 0),
+            recorded_at=datetime.fromisoformat(w["recorded_at"]),
+        )
+        for w in all_water
+        if w.get("recorded_at")
+    ]
 
-    from backend.backend.services.charts import generate_feeding_chart
+    from backend.services.charts import generate_feeding_chart
+
     chart_bytes = generate_feeding_chart(food_ns, water_ns, pet_names, days=7)
 
     if chart_bytes:
@@ -649,15 +646,28 @@ async def cb_food_chart_day(callback: CallbackQuery):
         await callback.answer("Нет данных за сегодня", show_alert=True)
         return
 
-    food_ns = [SimpleNamespace(pet_id=f.get("_pet_id", f.get("pet_id")),
-               food_name=f.get("food_name", ""), portion=f.get("portion", ""),
-               meal_time=datetime.fromisoformat(f["meal_time"]))
-               for f in summary_food if f.get("meal_time")]
-    water_ns = [SimpleNamespace(pet_id=w.get("_pet_id", w.get("pet_id")),
-                amount_ml=w.get("amount_ml", 0), recorded_at=datetime.fromisoformat(w["recorded_at"]))
-                for w in summary_water if w.get("recorded_at")]
+    food_ns = [
+        SimpleNamespace(
+            pet_id=f.get("_pet_id", f.get("pet_id")),
+            food_name=f.get("food_name", ""),
+            portion=f.get("portion", ""),
+            meal_time=datetime.fromisoformat(f["meal_time"]),
+        )
+        for f in summary_food
+        if f.get("meal_time")
+    ]
+    water_ns = [
+        SimpleNamespace(
+            pet_id=w.get("_pet_id", w.get("pet_id")),
+            amount_ml=w.get("amount_ml", 0),
+            recorded_at=datetime.fromisoformat(w["recorded_at"]),
+        )
+        for w in summary_water
+        if w.get("recorded_at")
+    ]
 
-    from backend.backend.services.charts import generate_daily_timeline
+    from backend.services.charts import generate_daily_timeline
+
     chart_bytes = generate_daily_timeline(food_ns, water_ns, pet_names, today)
 
     if chart_bytes:

@@ -157,9 +157,7 @@ async def vaccine_date_done(message: Message, state: FSMContext):
     await state.update_data(date_done=d.isoformat())
     await state.set_state(VaccinationForm.next_date)
     await message.answer(
-        f"Дата: <b>{format_date(d)}</b> ✅\n\n"
-        "📅 Когда следующая прививка? (ДД.ММ.ГГГГ)\n"
-        "Или нажмите «Пропустить»:",
+        f"Дата: <b>{format_date(d)}</b> ✅\n\n📅 Когда следующая прививка? (ДД.ММ.ГГГГ)\nИли нажмите «Пропустить»:",
         parse_mode="HTML",
         reply_markup=skip_kb,
     )
@@ -240,9 +238,7 @@ async def cb_vaccines_list(callback: CallbackQuery):
         all_vacs.extend(vacs)
 
     if not all_vacs:
-        await callback.message.edit_text(
-            "💉 Записей о прививках пока нет.", reply_markup=back_to_menu_kb
-        )
+        await callback.message.edit_text("💉 Записей о прививках пока нет.", reply_markup=back_to_menu_kb)
     else:
         lines = ["💉 <b>История прививок</b>\n"]
         for v in all_vacs[:20]:
@@ -374,9 +370,7 @@ async def cb_vetvisits_list(callback: CallbackQuery):
         all_visits.extend(visits)
 
     if not all_visits:
-        await callback.message.edit_text(
-            "🏥 Записей о визитах пока нет.", reply_markup=back_to_menu_kb
-        )
+        await callback.message.edit_text("🏥 Записей о визитах пока нет.", reply_markup=back_to_menu_kb)
     else:
         lines = ["🏥 <b>История визитов к ветеринару</b>\n"]
         for v in all_visits[:15]:
@@ -386,9 +380,7 @@ async def cb_vetvisits_list(callback: CallbackQuery):
                 f"• <b>{format_date(v.get('visit_date'))}</b> ({escape(pet_map.get(v.get('pet_id', 0), '?'))})\n"
                 f"  🩺 {escape(diag) if diag else '—'} | 💊 {escape(treat) if treat else '—'}"
             )
-        await callback.message.edit_text(
-            "\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb
-        )
+        await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb)
     await callback.answer()
 
 
@@ -453,8 +445,7 @@ async def weight_value(message: Message, state: FSMContext):
     await api_client.update_pet(data["pet_id"], message.from_user.id, weight=w)
 
     await message.answer(
-        f"✅ Вес записан: <b>{w} кг</b>\n"
-        f"📅 {format_date(record.get('recorded_at'))}",
+        f"✅ Вес записан: <b>{w} кг</b>\n📅 {format_date(record.get('recorded_at'))}",
         parse_mode="HTML",
         reply_markup=back_to_menu_kb,
     )
@@ -481,12 +472,10 @@ async def cb_weight_list(callback: CallbackQuery):
     else:
         lines = ["⚖️ <b>История веса</b>\n"]
         for r, pid in all_records[:20]:
-            label = escape(pet_map.get(pid, '?'))
-            dt = format_date(r.get('recorded_at'))
+            label = escape(pet_map.get(pid, "?"))
+            dt = format_date(r.get("recorded_at"))
             lines.append(f"• {label}: <b>{r['weight']} кг</b> — {dt}")
-        await callback.message.edit_text(
-            "\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb
-        )
+        await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=back_to_menu_kb)
     await callback.answer()
 
 
@@ -517,6 +506,7 @@ async def cb_weight_chart(callback: CallbackQuery):
         from datetime import datetime
 
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.dates as mdates
         import matplotlib.pyplot as plt

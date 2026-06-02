@@ -6,8 +6,8 @@ from html import escape
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from backend.services.norms import weight_progress
 
-from backend.backend.services.norms import weight_progress
 from bot import api_client
 from bot.keyboards.keyboards import back_to_menu_kb, cancel_kb
 from bot.states.states import WeightGoalForm
@@ -56,14 +56,18 @@ async def cb_weight_goal(callback: CallbackQuery):
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(
-                text="🎯 Установить цель",
-                callback_data=f"weight_goal:set:{pet_id}",
-            )],
-            [InlineKeyboardButton(
-                text="◀️ К профилю",
-                callback_data=f"pet:view:{pet_id}",
-            )],
+            [
+                InlineKeyboardButton(
+                    text="🎯 Установить цель",
+                    callback_data=f"weight_goal:set:{pet_id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="◀️ К профилю",
+                    callback_data=f"pet:view:{pet_id}",
+                )
+            ],
         ]
     )
 

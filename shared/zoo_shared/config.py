@@ -18,12 +18,11 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://redis:6379/0"
 
-    # AI Providers
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
-    OPENAI_TRANSCRIBE_MODEL: str = "whisper-1"
+    # AI Providers — единый провайдер OpenRouter (chat + vision + transcription)
     OPENROUTER_API_KEY: str = ""
-    OPENROUTER_MODEL: str = "openai/gpt-4o-mini"
+    OPENROUTER_MODEL: str = "deepseek/deepseek-v4-flash"  # основная текстовая модель
+    OPENROUTER_VISION_MODEL: str = "openai/gpt-4o-mini"  # модель для image_url-запросов
+    OPENROUTER_TRANSCRIBE_MODEL: str = "openai/whisper-1"  # модель для /audio/transcriptions
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENROUTER_SITE_URL: str = ""
     OPENROUTER_APP_NAME: str = "zoo_bot"

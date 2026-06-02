@@ -7,6 +7,8 @@ from typing import Any, Awaitable, Callable
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message
 
+from bot.utils.notify import notify_admins
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +32,17 @@ class ErrorGuardMiddleware(BaseMiddleware):
         except Exception as e:
             logger.exception("Необработанная ошибка в update: %s", e)
             await self._safe_notify_user(event, invalid_data=False)
+            await self._alert_admins(event, e)
             return None
+
+    @staticmethod
+    async def _alert_admins(event: Any, exc: Exception) -> None:
+        bot = getattr(event, "bot", None)
+        if bot is None:
+            return
+        uid = getattr(getattr(event, "from_user", None), "id", "?")
+        text = f"\U0001f6a8 <b>Ошибка в боте</b>\n<code>{type(exc).__name__}: {str(exc)[:200]}</code>\nuser: <code>{uid}</code>"
+        await notify_admins(bot, text, key=f"err:{type(exc).__name__}", min_interval=300.0)
 
     @staticmethod
     async def _safe_notify_user(event: Any, *, invalid_data: bool) -> None:

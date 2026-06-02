@@ -32,17 +32,11 @@ class TestSubscriptionExpirationText:
         assert "1 дн." in text
 
     def test_days_left_0(self):
-        text = (
-            "⏰ <b>Подписка заканчивается сегодня</b>\n\n"
-            "Продлите подписку, чтобы сохранить доступ к PRO-функциям."
-        )
+        text = "⏰ <b>Подписка заканчивается сегодня</b>\n\nПродлите подписку, чтобы сохранить доступ к PRO-функциям."
         assert "сегодня" in text
 
     def test_expired(self):
-        text = (
-            "❌ <b>Подписка истекла</b>\n\n"
-            "Доступ к PRO-функциям закрыт. Вы можете продлить подписку в настройках."
-        )
+        text = "❌ <b>Подписка истекла</b>\n\nДоступ к PRO-функциям закрыт. Вы можете продлить подписку в настройках."
         assert "истекла" in text
 
 
@@ -62,6 +56,7 @@ class TestSendSubscriptionNotifications:
             patch("worker.tasks.subscriptions.send_message", new_callable=AsyncMock) as mock_send,
         ):
             from worker.tasks.subscriptions import send_subscription_expiration_notifications
+
             await send_subscription_expiration_notifications()
             mock_send.assert_not_called()
 
@@ -84,6 +79,7 @@ class TestSendSubscriptionNotifications:
             patch("worker.tasks.subscriptions.send_message", new_callable=AsyncMock) as mock_send,
         ):
             from worker.tasks.subscriptions import send_subscription_expiration_notifications
+
             await send_subscription_expiration_notifications()
             mock_send.assert_called_once()
             call_text = mock_send.call_args[0][1]
@@ -108,6 +104,7 @@ class TestSendSubscriptionNotifications:
             patch("worker.tasks.subscriptions.send_message", new_callable=AsyncMock) as mock_send,
         ):
             from worker.tasks.subscriptions import send_subscription_expiration_notifications
+
             await send_subscription_expiration_notifications()
             mock_send.assert_called_once()
             call_text = mock_send.call_args[0][1]
@@ -134,6 +131,7 @@ class TestSendSubscriptionNotifications:
             patch("worker.tasks.subscriptions.send_message", new_callable=AsyncMock) as mock_send,
         ):
             from worker.tasks.subscriptions import send_subscription_expiration_notifications
+
             await send_subscription_expiration_notifications()
             mock_send.assert_called_once()
             call_text = mock_send.call_args[0][1]
@@ -158,5 +156,6 @@ class TestSendSubscriptionNotifications:
             patch("worker.tasks.subscriptions.send_message", new_callable=AsyncMock) as mock_send,
         ):
             from worker.tasks.subscriptions import send_subscription_expiration_notifications
+
             await send_subscription_expiration_notifications()
             mock_send.assert_not_called()

@@ -17,10 +17,10 @@ async def _get_weather(city: str) -> dict | None:
 
     try:
         async with aiohttp.ClientSession() as cs:
-            async with cs.get(f"https://wttr.in/{city}?format=j1", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with cs.get(f"https://wttr.in/{city}?format=j1&lang=ru", timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status != 200:
                     return None
-                data = await resp.json()
+                data = await resp.json(content_type=None)
                 current = data["current_condition"][0]
                 return {
                     "temp_c": int(current["temp_C"]),
@@ -55,8 +55,7 @@ def _generate_alert(weather: dict, species: str = "собака") -> str | None:
         alerts.append(f"🟡 <b>Тепло {temp}°C.</b> Гуляйте в тени, берите воду.")
     elif temp <= -15:
         alerts.append(
-            f"🔴 <b>Мороз {temp}°C!</b> Сократите прогулку. Мелким породам нужна одежда."
-            " Протирайте лапы от реагентов."
+            f"🔴 <b>Мороз {temp}°C!</b> Сократите прогулку. Мелким породам нужна одежда. Протирайте лапы от реагентов."
         )
     elif temp <= -5:
         alerts.append(f"🟡 <b>Холод {temp}°C.</b> Одевайте питомца, если он мёрзнет.")
@@ -68,8 +67,7 @@ def _generate_alert(weather: dict, species: str = "собака") -> str | None:
 
     if uv >= 8:
         alerts.append(
-            f"☀️ <b>UV-индекс {uv}!</b> Избегайте прямого солнца,"
-            " возможен солнечный ожог (особенно для светлых пород)."
+            f"☀️ <b>UV-индекс {uv}!</b> Избегайте прямого солнца, возможен солнечный ожог (особенно для светлых пород)."
         )
     elif uv >= 6:
         alerts.append(f"🌤 UV-индекс {uv}. Гуляйте в тени.")
@@ -95,9 +93,7 @@ async def send_weather_notifications():
 
         species_by_user: dict[int, set[str]] = {}
         if user_ids:
-            pet_rows = await session.execute(
-                select(Pet.user_id, Pet.species).where(Pet.user_id.in_(user_ids))
-            )
+            pet_rows = await session.execute(select(Pet.user_id, Pet.species).where(Pet.user_id.in_(user_ids)))
             for user_id, species in pet_rows.all():
                 species_by_user.setdefault(user_id, set()).add(species)
 

@@ -1,21 +1,22 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
 *.egg-info/
+*.egg
 dist/
 build/
 .eggs/
 
 # Virtual environments
-venv/
 .venv/
+venv/
 env/
 
 # Environment & secrets
 .env
-*.env.local
+.env.local
+.env.*.local
+.env.production
 
 # Database
 *.db
@@ -24,6 +25,7 @@ env/
 # Logs
 *.log
 *.log.*
+bot.log*
 
 # IDE
 .idea/
@@ -36,24 +38,29 @@ env/
 .DS_Store
 Thumbs.db
 
-# Docker volumes (local)
-pg_data/
-redis_data/
+# Docker
+.docker/
+docker-compose.override.yml
 
-# Coverage
+# Coverage & testing
 htmlcov/
 .coverage
 .coverage.*
-
-# Pytest
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Alembic
 alembic/versions/__pycache__/
 
 # Misc
 .claude/
-
-# Database backups
+backups/
+*.tgz
+*.tar.gz
 *.sql
 *.db-backup
+
+# Docker volumes (local)
+pg_data/
+redis_data/

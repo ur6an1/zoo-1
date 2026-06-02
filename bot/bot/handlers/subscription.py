@@ -73,8 +73,7 @@ async def cmd_grant_premium(message: Message):
         days = int(args[2])
     except ValueError:
         await message.answer(
-            "⚠️ user_id и days должны быть числами.\n"
-            "Пример: <code>/premium 123456789 30 pro</code>",
+            "⚠️ user_id и days должны быть числами.\nПример: <code>/premium 123456789 30 pro</code>",
             parse_mode="HTML",
         )
         return
@@ -127,8 +126,7 @@ async def cmd_revoke_premium(message: Message):
         target_user_id = int(args[1])
     except ValueError:
         await message.answer(
-            "⚠️ user_id должен быть числом.\n"
-            "Пример: <code>/revoke 123456789</code>",
+            "⚠️ user_id должен быть числом.\nПример: <code>/revoke 123456789</code>",
             parse_mode="HTML",
         )
         return
@@ -159,9 +157,7 @@ async def cb_subscription_cancel(callback: CallbackQuery):
         return
 
     await callback.message.edit_text(
-        "❌ <b>Отменить подписку</b>\n\n"
-        "Подписка будет отключена немедленно.\n"
-        "Вы уверены?",
+        "❌ <b>Отменить подписку</b>\n\nПодписка будет отключена немедленно.\nВы уверены?",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
@@ -216,8 +212,7 @@ async def weather_city_entered(message: Message, state: FSMContext):
     try:
         await api_client.update_user_settings(message.from_user.id, city=city)
         await message.answer(
-            f"✅ Город сохранён: <b>{city}</b>\n\n"
-            "Теперь вы можете получать погоду для этого города.",
+            f"✅ Город сохранён: <b>{city}</b>\n\nТеперь вы можете получать погоду для этого города.",
             parse_mode="HTML",
             reply_markup=main_menu_kb,
         )

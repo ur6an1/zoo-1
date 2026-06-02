@@ -24,7 +24,7 @@ async def get_weather(city: str) -> dict | None:
             ) as resp:
                 if resp.status != 200:
                     return None
-                data = await resp.json()
+                data = await resp.json(content_type=None)
                 current = data["current_condition"][0]
                 return {
                     "temp_c": int(current["temp_C"]),
@@ -59,8 +59,7 @@ def generate_pet_weather_alert(weather: dict, species: str = "собака") -> 
         alerts.append(f"🟡 <b>Тепло {temp}°C.</b> Гуляйте в тени, берите воду.")
     elif temp <= -15:
         alerts.append(
-            f"🔴 <b>Мороз {temp}°C!</b> Сократите прогулку. Мелким породам нужна одежда."
-            " Протирайте лапы от реагентов."
+            f"🔴 <b>Мороз {temp}°C!</b> Сократите прогулку. Мелким породам нужна одежда. Протирайте лапы от реагентов."
         )
     elif temp <= -5:
         alerts.append(f"🟡 <b>Холод {temp}°C.</b> Одевайте питомца, если он мёрзнет.")
@@ -72,8 +71,7 @@ def generate_pet_weather_alert(weather: dict, species: str = "собака") -> 
 
     if uv >= 8:
         alerts.append(
-            f"☀️ <b>UV-индекс {uv}!</b> Избегайте прямого солнца,"
-            " возможен солнечный ожог (особенно для светлых пород)."
+            f"☀️ <b>UV-индекс {uv}!</b> Избегайте прямого солнца, возможен солнечный ожог (особенно для светлых пород)."
         )
     elif uv >= 6:
         alerts.append(f"🌤 UV-индекс {uv}. Гуляйте в тени.")

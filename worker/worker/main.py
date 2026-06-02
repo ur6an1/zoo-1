@@ -77,7 +77,9 @@ async def main():
     )
 
     scheduler.start()
-    logger.info("Worker started (vaccinations 09:00, weather 07:30, payments 30s, subscriptions 10:00, reminders sync 60s)")
+    logger.info(
+        "Worker started (vaccinations 09:00, weather 07:30, payments 30s, subscriptions 10:00, reminders sync 60s)"
+    )
 
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()

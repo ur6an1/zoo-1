@@ -23,9 +23,7 @@ router = APIRouter(prefix="/food", tags=["food"])
 
 
 async def _check_pet_ownership(session: AsyncSession, user_id: int, pet_id: int) -> Pet:
-    result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id))
     pet = result.scalar_one_or_none()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -37,22 +35,28 @@ async def _check_pet_ownership(session: AsyncSession, user_id: int, pet_id: int)
 
 @router.get("/entries/{pet_id}", response_model=list[FoodEntryRead])
 async def list_food_entries(
-    pet_id: int, user_id: int, days: int = 7,
+    pet_id: int,
+    user_id: int,
+    days: int = 7,
     session: AsyncSession = Depends(get_session),
 ):
     await _check_pet_ownership(session, user_id, pet_id)
     since = datetime.utcnow() - timedelta(days=days)
     result = await session.execute(
-        select(FoodEntry).where(
-            FoodEntry.pet_id == pet_id, FoodEntry.meal_time >= since,
-        ).order_by(FoodEntry.meal_time.desc())
+        select(FoodEntry)
+        .where(
+            FoodEntry.pet_id == pet_id,
+            FoodEntry.meal_time >= since,
+        )
+        .order_by(FoodEntry.meal_time.desc())
     )
     return result.scalars().all()
 
 
 @router.post("/entries", response_model=FoodEntryRead, status_code=201)
 async def create_food_entry(
-    user_id: int, body: FoodEntryCreate,
+    user_id: int,
+    body: FoodEntryCreate,
     session: AsyncSession = Depends(get_session),
 ):
     await _check_pet_ownership(session, user_id, body.pet_id)
@@ -83,9 +87,7 @@ async def delete_food_entry(entry_id: int, user_id: int, session: AsyncSession =
 @router.delete("/entries/clear/{pet_id}", status_code=204)
 async def clear_food_entries(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
     await _check_pet_ownership(session, user_id, pet_id)
-    result = await session.execute(
-        select(FoodEntry).where(FoodEntry.pet_id == pet_id)
-    )
+    result = await session.execute(select(FoodEntry).where(FoodEntry.pet_id == pet_id))
     entries = result.scalars().all()
     for e in entries:
         await session.delete(e)
@@ -97,22 +99,28 @@ async def clear_food_entries(pet_id: int, user_id: int, session: AsyncSession = 
 
 @router.get("/water/{pet_id}", response_model=list[WaterEntryRead])
 async def list_water_entries(
-    pet_id: int, user_id: int, days: int = 7,
+    pet_id: int,
+    user_id: int,
+    days: int = 7,
     session: AsyncSession = Depends(get_session),
 ):
     await _check_pet_ownership(session, user_id, pet_id)
     since = datetime.utcnow() - timedelta(days=days)
     result = await session.execute(
-        select(WaterEntry).where(
-            WaterEntry.pet_id == pet_id, WaterEntry.recorded_at >= since,
-        ).order_by(WaterEntry.recorded_at.desc())
+        select(WaterEntry)
+        .where(
+            WaterEntry.pet_id == pet_id,
+            WaterEntry.recorded_at >= since,
+        )
+        .order_by(WaterEntry.recorded_at.desc())
     )
     return result.scalars().all()
 
 
 @router.post("/water", response_model=WaterEntryRead, status_code=201)
 async def create_water_entry(
-    user_id: int, body: WaterEntryCreate,
+    user_id: int,
+    body: WaterEntryCreate,
     session: AsyncSession = Depends(get_session),
 ):
     await _check_pet_ownership(session, user_id, body.pet_id)
@@ -137,9 +145,7 @@ async def delete_water_entry(entry_id: int, user_id: int, session: AsyncSession 
 @router.delete("/water/clear/{pet_id}", status_code=204)
 async def clear_water_entries(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
     await _check_pet_ownership(session, user_id, pet_id)
-    result = await session.execute(
-        select(WaterEntry).where(WaterEntry.pet_id == pet_id)
-    )
+    result = await session.execute(select(WaterEntry).where(WaterEntry.pet_id == pet_id))
     entries = result.scalars().all()
     for e in entries:
         await session.delete(e)
@@ -152,24 +158,21 @@ async def clear_water_entries(pet_id: int, user_id: int, session: AsyncSession =
 @router.get("/allergies/{pet_id}", response_model=list[AllergyRead])
 async def list_allergies(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
     await _check_pet_ownership(session, user_id, pet_id)
-    result = await session.execute(
-        select(Allergy).where(Allergy.pet_id == pet_id)
-    )
+    result = await session.execute(select(Allergy).where(Allergy.pet_id == pet_id))
     return result.scalars().all()
 
 
 @router.get("/allergies/by_user/{user_id}")
 async def list_allergies_by_user(user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Allergy)
-        .join(Pet, Pet.id == Allergy.pet_id)
-        .where(Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Allergy).join(Pet, Pet.id == Allergy.pet_id).where(Pet.user_id == user_id))
     allergies = result.scalars().all()
     return [
         {
-            "id": a.id, "pet_id": a.pet_id, "allergen": a.allergen,
-            "reaction": a.reaction, "notes": a.notes,
+            "id": a.id,
+            "pet_id": a.pet_id,
+            "allergen": a.allergen,
+            "reaction": a.reaction,
+            "notes": a.notes,
         }
         for a in allergies
     ]
@@ -177,7 +180,8 @@ async def list_allergies_by_user(user_id: int, session: AsyncSession = Depends(g
 
 @router.post("/allergies", response_model=AllergyRead, status_code=201)
 async def create_allergy(
-    user_id: int, body: AllergyCreate,
+    user_id: int,
+    body: AllergyCreate,
     session: AsyncSession = Depends(get_session),
 ):
     await _check_pet_ownership(session, user_id, body.pet_id)
@@ -196,9 +200,7 @@ async def create_allergy(
 @router.delete("/allergies/{allergy_id}", status_code=204)
 async def delete_allergy(allergy_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
     result = await session.execute(
-        select(Allergy)
-        .join(Pet, Pet.id == Allergy.pet_id)
-        .where(Allergy.id == allergy_id, Pet.user_id == user_id)
+        select(Allergy).join(Pet, Pet.id == Allergy.pet_id).where(Allergy.id == allergy_id, Pet.user_id == user_id)
     )
     allergy = result.scalar_one_or_none()
     if not allergy:
@@ -218,18 +220,22 @@ async def daily_summary(pet_id: int, user_id: int, session: AsyncSession = Depen
     today_end = today_start + timedelta(days=1)
 
     food_result = await session.execute(
-        select(FoodEntry).where(
+        select(FoodEntry)
+        .where(
             FoodEntry.pet_id == pet_id,
             and_(FoodEntry.meal_time >= today_start, FoodEntry.meal_time < today_end),
-        ).order_by(FoodEntry.meal_time)
+        )
+        .order_by(FoodEntry.meal_time)
     )
     foods = food_result.scalars().all()
 
     water_result = await session.execute(
-        select(WaterEntry).where(
+        select(WaterEntry)
+        .where(
             WaterEntry.pet_id == pet_id,
             and_(WaterEntry.recorded_at >= today_start, WaterEntry.recorded_at < today_end),
-        ).order_by(WaterEntry.recorded_at)
+        )
+        .order_by(WaterEntry.recorded_at)
     )
     waters = water_result.scalars().all()
 
@@ -240,14 +246,16 @@ async def daily_summary(pet_id: int, user_id: int, session: AsyncSession = Depen
         "pet_id": pet_id,
         "food_entries": [
             {
-                "id": f.id, "food_name": f.food_name, "portion": f.portion,
-                "portion_grams": f.portion_grams, "meal_time": f.meal_time.isoformat(),
+                "id": f.id,
+                "food_name": f.food_name,
+                "portion": f.portion,
+                "portion_grams": f.portion_grams,
+                "meal_time": f.meal_time.isoformat(),
             }
             for f in foods
         ],
         "water_entries": [
-            {"id": w.id, "amount_ml": w.amount_ml, "recorded_at": w.recorded_at.isoformat()}
-            for w in waters
+            {"id": w.id, "amount_ml": w.amount_ml, "recorded_at": w.recorded_at.isoformat()} for w in waters
         ],
         "total_grams": total_grams,
         "total_ml": total_ml,

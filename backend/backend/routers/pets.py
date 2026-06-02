@@ -50,9 +50,7 @@ async def list_pets(user_id: int, session: AsyncSession = Depends(get_session)):
 
 @router.get("/{pet_id}", response_model=PetRead)
 async def get_pet(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id))
     pet = result.scalar_one_or_none()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -83,9 +81,7 @@ async def update_pet(
     body: PetUpdate,
     session: AsyncSession = Depends(get_session),
 ):
-    result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id))
     pet = result.scalar_one_or_none()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -98,9 +94,7 @@ async def update_pet(
 
 @router.delete("/{pet_id}", status_code=204)
 async def delete_pet(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id))
     pet = result.scalar_one_or_none()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -110,9 +104,7 @@ async def delete_pet(pet_id: int, user_id: int, session: AsyncSession = Depends(
 
 @router.get("/{pet_id}/stats")
 async def pet_stats(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id))
     pet = result.scalar_one_or_none()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -127,22 +119,20 @@ async def pet_stats(pet_id: int, user_id: int, session: AsyncSession = Depends(g
         ("allergies", Allergy),
         ("documents", Document),
     ]:
-        r = await session.execute(
-            select(func.count(model.id)).where(model.pet_id == pet_id)
-        )
+        r = await session.execute(select(func.count(model.id)).where(model.pet_id == pet_id))
         counts[label] = int(r.scalar_one() or 0)
 
     r = await session.execute(
         select(func.count(Reminder.id)).where(
-            Reminder.pet_id == pet_id, Reminder.is_active == True  # noqa: E712
+            Reminder.pet_id == pet_id,
+            Reminder.is_active == True,  # noqa: E712
         )
     )
     counts["active_reminders"] = int(r.scalar_one() or 0)
 
     last_vac = None
     r = await session.execute(
-        select(Vaccination).where(Vaccination.pet_id == pet_id)
-        .order_by(Vaccination.date_done.desc()).limit(1)
+        select(Vaccination).where(Vaccination.pet_id == pet_id).order_by(Vaccination.date_done.desc()).limit(1)
     )
     v = r.scalar_one_or_none()
     if v:
@@ -150,10 +140,13 @@ async def pet_stats(pet_id: int, user_id: int, session: AsyncSession = Depends(g
 
     next_vac = None
     r = await session.execute(
-        select(Vaccination).where(
+        select(Vaccination)
+        .where(
             Vaccination.pet_id == pet_id,
             Vaccination.next_date != None,  # noqa: E711
-        ).order_by(Vaccination.next_date).limit(1)
+        )
+        .order_by(Vaccination.next_date)
+        .limit(1)
     )
     v = r.scalar_one_or_none()
     if v and v.next_date:
@@ -161,8 +154,7 @@ async def pet_stats(pet_id: int, user_id: int, session: AsyncSession = Depends(g
 
     last_visit = None
     r = await session.execute(
-        select(VetVisit).where(VetVisit.pet_id == pet_id)
-        .order_by(VetVisit.visit_date.desc()).limit(1)
+        select(VetVisit).where(VetVisit.pet_id == pet_id).order_by(VetVisit.visit_date.desc()).limit(1)
     )
     vv = r.scalar_one_or_none()
     if vv:
@@ -170,8 +162,7 @@ async def pet_stats(pet_id: int, user_id: int, session: AsyncSession = Depends(g
 
     last_weight = None
     r = await session.execute(
-        select(WeightRecord).where(WeightRecord.pet_id == pet_id)
-        .order_by(WeightRecord.recorded_at.desc()).limit(1)
+        select(WeightRecord).where(WeightRecord.pet_id == pet_id).order_by(WeightRecord.recorded_at.desc()).limit(1)
     )
     w = r.scalar_one_or_none()
     if w:
@@ -189,59 +180,69 @@ async def pet_stats(pet_id: int, user_id: int, session: AsyncSession = Depends(g
 
 @router.get("/{pet_id}/export")
 async def pet_export(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id))
     pet = result.scalar_one_or_none()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
 
-    vaccinations = (await session.execute(
-        select(Vaccination).where(Vaccination.pet_id == pet_id)
-        .order_by(Vaccination.date_done.desc())
-    )).scalars().all()
+    vaccinations = (
+        (
+            await session.execute(
+                select(Vaccination).where(Vaccination.pet_id == pet_id).order_by(Vaccination.date_done.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
 
-    visits = (await session.execute(
-        select(VetVisit).where(VetVisit.pet_id == pet_id)
-        .order_by(VetVisit.visit_date.desc())
-    )).scalars().all()
+    visits = (
+        (await session.execute(select(VetVisit).where(VetVisit.pet_id == pet_id).order_by(VetVisit.visit_date.desc())))
+        .scalars()
+        .all()
+    )
 
-    weights = (await session.execute(
-        select(WeightRecord).where(WeightRecord.pet_id == pet_id)
-        .order_by(WeightRecord.recorded_at.desc())
-    )).scalars().all()
+    weights = (
+        (
+            await session.execute(
+                select(WeightRecord).where(WeightRecord.pet_id == pet_id).order_by(WeightRecord.recorded_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
 
-    allergies = (await session.execute(
-        select(Allergy).where(Allergy.pet_id == pet_id)
-    )).scalars().all()
+    allergies = (await session.execute(select(Allergy).where(Allergy.pet_id == pet_id))).scalars().all()
 
     return {
         "pet": _pet_to_read(pet),
         "vaccinations": [
-            {"id": v.id, "name": v.name, "date_done": v.date_done.isoformat(),
-             "next_date": v.next_date.isoformat() if v.next_date else None,
-             "notes": v.notes}
+            {
+                "id": v.id,
+                "name": v.name,
+                "date_done": v.date_done.isoformat(),
+                "next_date": v.next_date.isoformat() if v.next_date else None,
+                "notes": v.notes,
+            }
             for v in vaccinations
         ],
         "vet_visits": [
-            {"id": v.id, "visit_date": v.visit_date.isoformat(),
-             "diagnosis": v.diagnosis, "treatment": v.treatment, "notes": v.notes}
+            {
+                "id": v.id,
+                "visit_date": v.visit_date.isoformat(),
+                "diagnosis": v.diagnosis,
+                "treatment": v.treatment,
+                "notes": v.notes,
+            }
             for v in visits
         ],
-        "weight_records": [
-            {"id": w.id, "weight": w.weight, "recorded_at": w.recorded_at.isoformat()}
-            for w in weights
-        ],
+        "weight_records": [{"id": w.id, "weight": w.weight, "recorded_at": w.recorded_at.isoformat()} for w in weights],
         "allergies": [
-            {"id": a.id, "allergen": a.allergen, "reaction": a.reaction, "notes": a.notes}
-            for a in allergies
+            {"id": a.id, "allergen": a.allergen, "reaction": a.reaction, "notes": a.notes} for a in allergies
         ],
     }
 
 
 @router.get("/count/{user_id}")
 async def pet_count(user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(func.count(Pet.id)).where(Pet.user_id == user_id)
-    )
+    result = await session.execute(select(func.count(Pet.id)).where(Pet.user_id == user_id))
     return {"count": int(result.scalar_one() or 0)}

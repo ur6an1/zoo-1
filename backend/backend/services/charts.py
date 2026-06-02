@@ -13,15 +13,17 @@ import matplotlib.pyplot as plt
 logger = logging.getLogger(__name__)
 
 # ── Стиль графиков ──
-plt.rcParams.update({
-    "font.size": 10,
-    "axes.titlesize": 13,
-    "axes.labelsize": 11,
-    "figure.facecolor": "#f8f9fa",
-    "axes.facecolor": "#ffffff",
-    "axes.grid": True,
-    "grid.alpha": 0.3,
-})
+plt.rcParams.update(
+    {
+        "font.size": 10,
+        "axes.titlesize": 13,
+        "axes.labelsize": 11,
+        "figure.facecolor": "#f8f9fa",
+        "axes.facecolor": "#ffffff",
+        "axes.grid": True,
+        "grid.alpha": 0.3,
+    }
+)
 
 COLORS = ["#4CAF50", "#2196F3", "#FF9800", "#E91E63", "#9C27B0", "#00BCD4"]
 
@@ -172,7 +174,10 @@ def generate_feeding_chart(food_entries: list, water_entries: list, pet_names: d
 
 
 def generate_daily_timeline(
-    food_entries: list, water_entries: list, pet_names: dict, target_date: date = None,
+    food_entries: list,
+    water_entries: list,
+    pet_names: dict,
+    target_date: date = None,
 ) -> bytes | None:
     """Генерирует таймлайн питания за день.
 
@@ -243,7 +248,8 @@ def generate_daily_timeline(
                 labels = []
                 for e in pet_water:
                     t = (
-                        e.recorded_at if isinstance(e.recorded_at, datetime)
+                        e.recorded_at
+                        if isinstance(e.recorded_at, datetime)
                         else datetime.combine(target_date, e.recorded_at)
                     )
                     h = t.hour + t.minute / 60

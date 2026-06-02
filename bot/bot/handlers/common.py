@@ -4,7 +4,7 @@ import logging
 from html import escape
 
 from aiogram import F, Router
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -24,11 +24,12 @@ router = Router(name="common")
 
 
 @router.message(Command("start"))
-async def cmd_start(message: Message, state: FSMContext):
-    """Обработчик команды /start."""
+async def cmd_start(message: Message, command: CommandObject, state: FSMContext):
+    """Обработчик команды /start. Параметр deep-link (/start <src>) пишется как источник."""
     await state.clear()
-    await api_client.track_user_activity(message.from_user.id, source="start")
-    await api_client.track_event(message.from_user.id, "start", source="command")
+    source = command.args.strip()[:100] if command.args else "command"
+    await api_client.track_user_activity(message.from_user.id, source=source)
+    await api_client.track_event(message.from_user.id, "start", source=source)
     await message.answer(
         f"🐾 <b>Добро пожаловать в ZooBuddy!</b>\n\n"
         f"Привет, {escape(message.from_user.first_name or 'друг')}! 👋\n\n"
@@ -36,7 +37,8 @@ async def cmd_start(message: Message, state: FSMContext):
         "<b>Первый полезный результат за 1 минуту:</b>\n"
         "1. Добавьте питомца\n"
         "2. Поставьте первое напоминание или цель по весу\n"
-        "3. При необходимости откройте подписку для AI и PRO-функций",
+        "3. При необходимости откройте подписку для AI и PRO-функций\n\n"
+        "<i>Используя бота, вы принимаете оферту (/terms) и политику конфиденциальности (/privacy).</i>",
         parse_mode="HTML",
         reply_markup=quick_start_kb,
     )
@@ -54,7 +56,10 @@ async def cmd_help(message: Message):
         "<b>Команды:</b>\n"
         "/start — Перезапустить бота\n"
         "/help — Показать помощь\n"
-        "/cancel — Отменить текущее действие\n\n"
+        "/cancel — Отменить текущее действие\n"
+        "/support — Поддержка\n"
+        "/terms — Оферта · /privacy — Конфиденциальность\n"
+        "/delete_me — Удалить мои данные\n\n"
         "<b>Разделы меню:</b>\n"
         "🐾 <b>Питомцы</b> — карточки, напоминания, календарь\n"
         "🩺 <b>Здоровье</b> — медкарта, питание, погода, советы, SOS\n"

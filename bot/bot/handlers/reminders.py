@@ -113,8 +113,7 @@ async def reminder_category(callback: CallbackQuery, state: FSMContext):
     await state.update_data(category=category)
     await state.set_state(ReminderForm.title)
     await callback.message.edit_text(
-        f"Категория: <b>{cat_names.get(category, category)}</b> ✅\n\n"
-        "Введите название напоминания:",
+        f"Категория: <b>{cat_names.get(category, category)}</b> ✅\n\nВведите название напоминания:",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -147,8 +146,7 @@ async def reminder_description(message: Message, state: FSMContext):
     await state.update_data(description=desc)
     await state.set_state(ReminderForm.date)
     await message.answer(
-        "📅 Введите дату напоминания в формате <b>ДД.ММ.ГГГГ</b>\n"
-        "(например: 15.03.2026):",
+        "📅 Введите дату напоминания в формате <b>ДД.ММ.ГГГГ</b>\n(например: 15.03.2026):",
         parse_mode="HTML",
     )
 
@@ -166,9 +164,7 @@ async def reminder_date(message: Message, state: FSMContext):
     await state.update_data(date=d.isoformat())
     await state.set_state(ReminderForm.time)
     await message.answer(
-        f"Дата: <b>{d.strftime('%d.%m.%Y')}</b> ✅\n\n"
-        "⏰ Введите время в формате <b>ЧЧ:ММ</b>\n"
-        "(например: 09:00):",
+        f"Дата: <b>{d.strftime('%d.%m.%Y')}</b> ✅\n\n⏰ Введите время в формате <b>ЧЧ:ММ</b>\n(например: 09:00):",
         parse_mode="HTML",
     )
 
@@ -187,8 +183,7 @@ async def reminder_time(message: Message, state: FSMContext):
     await state.update_data(hour=h, minute=m)
     await state.set_state(ReminderForm.repeat)
     await message.answer(
-        f"Время: <b>{h:02d}:{m:02d}</b> ✅\n\n"
-        "🔄 Выберите периодичность:",
+        f"Время: <b>{h:02d}:{m:02d}</b> ✅\n\n🔄 Выберите периодичность:",
         parse_mode="HTML",
         reply_markup=reminder_repeat_kb,
     )
@@ -312,8 +307,7 @@ async def cb_reminder_pause(callback: CallbackQuery):
         return
 
     await callback.message.edit_text(
-        f"⏸ Напоминание <b>{escape(result['title'])}</b> приостановлено.\n"
-        "Вы можете возобновить его в любое время.",
+        f"⏸ Напоминание <b>{escape(result['title'])}</b> приостановлено.\nВы можете возобновить его в любое время.",
         parse_mode="HTML",
         reply_markup=reminder_detail_kb(rem_id, is_active=False),
     )

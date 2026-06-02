@@ -20,8 +20,7 @@ async def cb_food_norms(callback: CallbackQuery):
 
         if norms_data.get("no_pets"):
             await callback.message.edit_text(
-                "😕 У вас нет питомцев.\n"
-                "Сначала добавьте питомца в разделе 🐾 Мои питомцы.",
+                "😕 У вас нет питомцев.\nСначала добавьте питомца в разделе 🐾 Мои питомцы.",
                 reply_markup=back_to_menu_kb,
             )
             await callback.answer()

@@ -6,9 +6,12 @@ from backend.services.weather import generate_pet_weather_alert
 class TestGeneratePetWeatherAlert:
     def _weather(self, temp_c=20, wind_kmph=10, uv=3):
         return {
-            "temp_c": temp_c, "feels_like": temp_c,
-            "humidity": 50, "wind_kmph": wind_kmph,
-            "uv": uv, "description": "Облачно",
+            "temp_c": temp_c,
+            "feels_like": temp_c,
+            "humidity": 50,
+            "wind_kmph": wind_kmph,
+            "uv": uv,
+            "description": "Облачно",
         }
 
     def test_normal_no_alert(self):

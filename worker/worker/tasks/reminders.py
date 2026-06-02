@@ -37,11 +37,7 @@ async def send_reminder(reminder_id: int):
         pet_name = pet.name if pet else "питомец"
         emoji = reminder.category_emoji
 
-        text = (
-            f"{emoji} <b>Напоминание!</b>\n\n"
-            f"🐾 Питомец: {pet_name}\n"
-            f"📌 {reminder.title}\n"
-        )
+        text = f"{emoji} <b>Напоминание!</b>\n\n🐾 Питомец: {pet_name}\n📌 {reminder.title}\n"
         if reminder.description:
             text += f"📝 {reminder.description}\n"
         text += f"\n🔄 Повтор: {reminder.repeat_text}"

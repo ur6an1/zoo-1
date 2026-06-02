@@ -35,34 +35,22 @@ def _is_fresh(name: str) -> bool:
 
 
 async def _check_ai() -> bool | None:
-    if _settings.OPENROUTER_API_KEY:
-        headers = {
-            "Authorization": f"Bearer {_settings.OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        if _settings.OPENROUTER_SITE_URL:
-            headers["HTTP-Referer"] = _settings.OPENROUTER_SITE_URL
-        if _settings.OPENROUTER_APP_NAME:
-            headers["X-Title"] = _settings.OPENROUTER_APP_NAME
-        url = f"{_settings.OPENROUTER_BASE_URL.rstrip('/')}/chat/completions"
-        payload = {
-            "model": _settings.OPENROUTER_MODEL,
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 1,
-        }
-    elif _settings.OPENAI_API_KEY:
-        headers = {
-            "Authorization": f"Bearer {_settings.OPENAI_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        url = "https://api.openai.com/v1/chat/completions"
-        payload = {
-            "model": _settings.OPENAI_MODEL,
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 1,
-        }
-    else:
+    if not _settings.OPENROUTER_API_KEY:
         return False
+    headers = {
+        "Authorization": f"Bearer {_settings.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    if _settings.OPENROUTER_SITE_URL:
+        headers["HTTP-Referer"] = _settings.OPENROUTER_SITE_URL
+    if _settings.OPENROUTER_APP_NAME:
+        headers["X-Title"] = _settings.OPENROUTER_APP_NAME
+    url = f"{_settings.OPENROUTER_BASE_URL.rstrip('/')}/chat/completions"
+    payload = {
+        "model": _settings.OPENROUTER_MODEL,
+        "messages": [{"role": "user", "content": "ping"}],
+        "max_tokens": 1,
+    }
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -140,7 +128,7 @@ async def is_ai_operational(force: bool = False) -> bool:
 
     При сетевой неопределённости не блокируем функциональность жёстко.
     """
-    if not _settings.OPENAI_API_KEY and not _settings.OPENROUTER_API_KEY:
+    if not _settings.OPENROUTER_API_KEY:
         return False
 
     await refresh_provider_health(force=force)

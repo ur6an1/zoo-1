@@ -140,10 +140,14 @@ def confirm_delete_kb(pet_id: int) -> InlineKeyboardMarkup:
 
 species_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="🐱 Кошка", callback_data="species:кошка"),
-         InlineKeyboardButton(text="🐶 Собака", callback_data="species:собака")],
-        [InlineKeyboardButton(text="🐦 Птица", callback_data="species:птица"),
-         InlineKeyboardButton(text="🐹 Грызун", callback_data="species:грызун")],
+        [
+            InlineKeyboardButton(text="🐱 Кошка", callback_data="species:кошка"),
+            InlineKeyboardButton(text="🐶 Собака", callback_data="species:собака"),
+        ],
+        [
+            InlineKeyboardButton(text="🐦 Птица", callback_data="species:птица"),
+            InlineKeyboardButton(text="🐹 Грызун", callback_data="species:грызун"),
+        ],
         [InlineKeyboardButton(text="🐾 Другое", callback_data="species:другое")],
     ]
 )
@@ -160,10 +164,14 @@ reminders_menu_kb = InlineKeyboardMarkup(
 
 reminder_category_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="🍽 Кормление", callback_data="rem_cat:feeding"),
-         InlineKeyboardButton(text="💉 Прививка", callback_data="rem_cat:vaccine")],
-        [InlineKeyboardButton(text="🏥 Ветеринар", callback_data="rem_cat:vet"),
-         InlineKeyboardButton(text="✂️ Груминг", callback_data="rem_cat:grooming")],
+        [
+            InlineKeyboardButton(text="🍽 Кормление", callback_data="rem_cat:feeding"),
+            InlineKeyboardButton(text="💉 Прививка", callback_data="rem_cat:vaccine"),
+        ],
+        [
+            InlineKeyboardButton(text="🏥 Ветеринар", callback_data="rem_cat:vet"),
+            InlineKeyboardButton(text="✂️ Груминг", callback_data="rem_cat:grooming"),
+        ],
         [InlineKeyboardButton(text="📌 Своё", callback_data="rem_cat:custom")],
         [InlineKeyboardButton(text="◀️ Отмена", callback_data="reminder:cancel")],
     ]
@@ -171,10 +179,14 @@ reminder_category_kb = InlineKeyboardMarkup(
 
 reminder_repeat_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="Разово", callback_data="repeat:once"),
-         InlineKeyboardButton(text="Ежедневно", callback_data="repeat:daily")],
-        [InlineKeyboardButton(text="Еженедельно", callback_data="repeat:weekly"),
-         InlineKeyboardButton(text="Ежемесячно", callback_data="repeat:monthly")],
+        [
+            InlineKeyboardButton(text="Разово", callback_data="repeat:once"),
+            InlineKeyboardButton(text="Ежедневно", callback_data="repeat:daily"),
+        ],
+        [
+            InlineKeyboardButton(text="Еженедельно", callback_data="repeat:weekly"),
+            InlineKeyboardButton(text="Ежемесячно", callback_data="repeat:monthly"),
+        ],
         [InlineKeyboardButton(text="Ежегодно", callback_data="repeat:yearly")],
     ]
 )
@@ -354,13 +366,9 @@ tips_menu_kb = InlineKeyboardMarkup(
 
 # ──────────────────── ОБЩИЕ ────────────────────
 
-skip_kb = InlineKeyboardMarkup(
-    inline_keyboard=[[InlineKeyboardButton(text="⏭ Пропустить", callback_data="skip")]]
-)
+skip_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⏭ Пропустить", callback_data="skip")]])
 
-cancel_kb = InlineKeyboardMarkup(
-    inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")]]
-)
+cancel_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")]])
 
 back_to_menu_kb = InlineKeyboardMarkup(
     inline_keyboard=[[InlineKeyboardButton(text="◀️ В главное меню", callback_data="menu:main")]]
@@ -379,10 +387,14 @@ doc_type_kb = InlineKeyboardMarkup(
 
 clinic_radius_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="1 км", callback_data="clinic:r:1000"),
-         InlineKeyboardButton(text="3 км", callback_data="clinic:r:3000"),
-         InlineKeyboardButton(text="5 км", callback_data="clinic:r:5000")],
-        [InlineKeyboardButton(text="10 км", callback_data="clinic:r:10000"),
-         InlineKeyboardButton(text="20 км", callback_data="clinic:r:20000")],
+        [
+            InlineKeyboardButton(text="1 км", callback_data="clinic:r:1000"),
+            InlineKeyboardButton(text="3 км", callback_data="clinic:r:3000"),
+            InlineKeyboardButton(text="5 км", callback_data="clinic:r:5000"),
+        ],
+        [
+            InlineKeyboardButton(text="10 км", callback_data="clinic:r:10000"),
+            InlineKeyboardButton(text="20 км", callback_data="clinic:r:20000"),
+        ],
     ]
 )

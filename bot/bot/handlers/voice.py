@@ -6,8 +6,8 @@ from html import escape
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from backend.services.vision import transcribe_voice
 
-from backend.backend.services.vision import transcribe_voice
 from bot import api_client
 from bot.keyboards.keyboards import add_pet_cta_kb, back_to_menu_kb, cancel_kb, pets_list_kb
 from bot.states.states import VoiceNoteForm
@@ -100,8 +100,7 @@ async def cb_voice_add(callback: CallbackQuery, state: FSMContext):
 
     if not pets:
         await callback.message.edit_text(
-            "😕 У вас нет питомцев.\n"
-            "Сначала добавьте питомца в разделе 🐾 Мои питомцы.",
+            "😕 У вас нет питомцев.\nСначала добавьте питомца в разделе 🐾 Мои питомцы.",
             reply_markup=add_pet_cta_kb,
         )
         await callback.answer()
@@ -131,8 +130,7 @@ async def cb_voice_pet(callback: CallbackQuery, state: FSMContext):
     await state.set_state(VoiceNoteForm.waiting_voice)
 
     await callback.message.edit_text(
-        "🎙 <b>Отправьте голосовое сообщение</b>\n\n"
-        "Запишите наблюдения о питомце — я транскрибирую и сохраню.",
+        "🎙 <b>Отправьте голосовое сообщение</b>\n\nЗапишите наблюдения о питомце — я транскрибирую и сохраню.",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -186,15 +184,15 @@ async def voice_received(message: Message, state: FSMContext, bot: Bot):
     text_preview = transcription[:300] if transcription else "транскрипция недоступна"
 
     await processing_msg.edit_text(
-        "✅ <b>Голосовая заметка сохранена!</b>\n\n"
-        f"🐾 Питомец: {escape(pet_name)}\n"
-        f"📝 Текст:\n{escape(text_preview)}",
+        f"✅ <b>Голосовая заметка сохранена!</b>\n\n🐾 Питомец: {escape(pet_name)}\n📝 Текст:\n{escape(text_preview)}",
         parse_mode="HTML",
         reply_markup=back_to_menu_kb,
     )
     await api_client.track_event(
-        message.from_user.id, "premium_feature_used",
-        source="voice_note", payload={"pet_id": pet_id},
+        message.from_user.id,
+        "premium_feature_used",
+        source="voice_note",
+        payload={"pet_id": pet_id},
     )
 
 
@@ -202,8 +200,7 @@ async def voice_received(message: Message, state: FSMContext, bot: Bot):
 async def voice_not_voice(message: Message):
     """Ожидали голосовое, получили что-то другое."""
     await message.answer(
-        "🎙 Пожалуйста, отправьте <b>голосовое сообщение</b>.\n"
-        "Или нажмите «Отмена».",
+        "🎙 Пожалуйста, отправьте <b>голосовое сообщение</b>.\nИли нажмите «Отмена».",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )
@@ -240,10 +237,7 @@ async def cb_voice_list(callback: CallbackQuery):
                 preview = transcription[:80] + "..." if len(transcription) > 80 else transcription
                 if not preview:
                     preview = "без текста"
-                lines.append(
-                    f"• {escape(pet_label)} — {dt}\n"
-                    f"  📝 {escape(preview)}"
-                )
+                lines.append(f"• {escape(pet_label)} — {dt}\n  📝 {escape(preview)}")
 
             await callback.message.edit_text(
                 "\n".join(lines),

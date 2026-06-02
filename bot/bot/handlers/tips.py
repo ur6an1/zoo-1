@@ -4,8 +4,8 @@ import logging
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
+from backend.services.content import FAQ_TEXT, NUTRITION_TEXT, TIPS
 
-from backend.backend.services.content import FAQ_TEXT, NUTRITION_TEXT, TIPS
 from bot.keyboards.keyboards import back_to_menu_kb, tips_menu_kb
 
 logger = logging.getLogger(__name__)

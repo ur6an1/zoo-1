@@ -1,0 +1,128 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    # Деплоим только если CI прошёл (или вручную через workflow_dispatch).
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "$PROD_PORT" -H "$PROD_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy over SSH
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_PATH: ${{ secrets.PROD_PATH }}
+          RELEASE_NAME: zoo-${{ github.sha }}.tar.gz
+        run: |
+          set -euo pipefail
+          test -n "${PROD_HOST:-}"
+          test -n "${PROD_PORT:-}"
+          test -n "${PROD_USER:-}"
+          test -n "${PROD_PATH:-}"
+
+          git archive --format=tar.gz --output "$RELEASE_NAME" HEAD
+
+          scp -i ~/.ssh/id_ed25519 \
+            -P "$PROD_PORT" \
+            -o StrictHostKeyChecking=yes \
+            "$RELEASE_NAME" \
+            "$PROD_USER@$PROD_HOST:/tmp/$RELEASE_NAME"
+
+          ssh -i ~/.ssh/id_ed25519 \
+            -p "$PROD_PORT" \
+            -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" <<EOF
+          set -euo pipefail
+          DEPLOY_PATH="$PROD_PATH"
+          RELEASE_FILE="/tmp/$RELEASE_NAME"
+          STAGE_DIR="/tmp/.zoo_release_${{ github.sha }}"
+
+          test -f "\$RELEASE_FILE"
+          mkdir -p "\$DEPLOY_PATH"
+
+          rm -rf "\$STAGE_DIR"
+          mkdir -p "\$STAGE_DIR"
+          tar -xzf "\$RELEASE_FILE" -C "\$STAGE_DIR"
+
+          # Сохраняем рантайм-состояние, которого нет в git.
+          if [ -f "\$DEPLOY_PATH/.env" ]; then
+            cp "\$DEPLOY_PATH/.env" "\$STAGE_DIR/.env"
+          fi
+
+          if ! find "\$DEPLOY_PATH" \
+            -mindepth 1 \
+            -maxdepth 1 \
+            ! -name ".env" \
+            ! -name "backups" \
+            -exec rm -rf {} +; then
+            echo "Warning: partial cleanup, continuing with overlay deploy."
+          fi
+
+          cp -a "\$STAGE_DIR"/. "\$DEPLOY_PATH"/
+          rm -rf "\$STAGE_DIR" "\$RELEASE_FILE"
+
+          cd "\$DEPLOY_PATH"
+          test -f docker-compose.yml
+
+          echo "Building images..."
+          docker compose build
+
+          echo "Running migrations..."
+          # -T + </dev/null: иначе docker compose run глотает остаток
+          # heredoc'а из stdin, и up/health-check не выполняются.
+          docker compose run --rm -T migrate </dev/null
+
+          echo "Recreating services..."
+          docker compose up -d --force-recreate --remove-orphans
+
+          docker compose ps
+
+          # backend-порт не опубликован на host — проверяем изнутри контейнера.
+          echo "Waiting for backend to become healthy..."
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            if docker compose exec -T backend curl -fsS http://localhost:8000/health >/dev/null; then
+              echo "Backend healthy after \${i} attempt(s)."
+              break
+            fi
+            if [ "\$i" = "12" ]; then
+              echo "Backend did not become healthy within 60s — deploy failed."
+              docker compose ps
+              docker compose logs backend --tail 50
+              exit 1
+            fi
+            sleep 5
+          done
+          EOF

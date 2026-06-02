@@ -33,9 +33,7 @@ async def cb_calendar_view(callback: CallbackQuery):
     """Inline-вариант отображения календаря."""
     try:
         text = await _build_calendar(callback.from_user.id)
-        await callback.message.edit_text(
-            text, parse_mode="HTML", reply_markup=back_to_menu_kb
-        )
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=back_to_menu_kb)
     except Exception as e:
         logger.error(f"Ошибка календаря: {e}")
         await callback.message.edit_text(
@@ -53,11 +51,7 @@ async def _build_calendar(user_id: int) -> str:
     data = await api_client.get_medical_calendar(user_id)
 
     if not data.get("pets"):
-        return (
-            "📅 <b>Календарь</b>\n\n"
-            "😕 У вас нет питомцев.\n"
-            "Добавьте питомца, чтобы увидеть события."
-        )
+        return "📅 <b>Календарь</b>\n\n😕 У вас нет питомцев.\nДобавьте питомца, чтобы увидеть события."
 
     events: list[tuple[datetime, str]] = []
 
@@ -68,11 +62,13 @@ async def _build_calendar(user_id: int) -> str:
             continue
         pet_name = rem.get("pet_name", "?")
         cat_emoji = rem.get("category_emoji", "🔔")
-        events.append((
-            remind_at,
-            f"{cat_emoji} <b>{rem['title']}</b>\n"
-            f"   🐾 {pet_name} | ⏰ {remind_at.strftime('%H:%M')} | 🔄 {rem.get('repeat_text', '')}",
-        ))
+        events.append(
+            (
+                remind_at,
+                f"{cat_emoji} <b>{rem['title']}</b>\n"
+                f"   🐾 {pet_name} | ⏰ {remind_at.strftime('%H:%M')} | 🔄 {rem.get('repeat_text', '')}",
+            )
+        )
 
     for v in data.get("vaccinations", []):
         next_date_str = v.get("next_date")
@@ -85,11 +81,12 @@ async def _build_calendar(user_id: int) -> str:
         if nd.date() < today:
             continue
         pet_name = v.get("pet_name", "?")
-        events.append((
-            nd,
-            f"💉 <b>{v['name']}</b> (следующая)\n"
-            f"   🐾 {pet_name} | 📅 {format_date(nd.date())}",
-        ))
+        events.append(
+            (
+                nd,
+                f"💉 <b>{v['name']}</b> (следующая)\n   🐾 {pet_name} | 📅 {format_date(nd.date())}",
+            )
+        )
 
     for vv in data.get("vet_visits", [])[:5]:
         try:
@@ -100,11 +97,12 @@ async def _build_calendar(user_id: int) -> str:
         diagnosis = vv.get("diagnosis", "")
         diag = diagnosis[:60] + "..." if len(diagnosis) > 60 else diagnosis
         diag_text = f" — {diag}" if diag else ""
-        events.append((
-            vd,
-            f"🏥 <b>Визит к ветеринару</b>{diag_text}\n"
-            f"   🐾 {pet_name} | 📅 {format_date(vd.date())}",
-        ))
+        events.append(
+            (
+                vd,
+                f"🏥 <b>Визит к ветеринару</b>{diag_text}\n   🐾 {pet_name} | 📅 {format_date(vd.date())}",
+            )
+        )
 
     events.sort(key=lambda e: e[0])
 

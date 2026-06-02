@@ -16,18 +16,14 @@ router = APIRouter(prefix="/reminders", tags=["reminders"])
 @router.get("/by_user/{user_id}", response_model=list[ReminderRead])
 async def list_reminders(user_id: int, session: AsyncSession = Depends(get_session)):
     result = await session.execute(
-        select(Reminder)
-        .where(Reminder.user_id == user_id)
-        .order_by(Reminder.is_active.desc(), Reminder.remind_at)
+        select(Reminder).where(Reminder.user_id == user_id).order_by(Reminder.is_active.desc(), Reminder.remind_at)
     )
     return result.scalars().all()
 
 
 @router.get("/{reminder_id}")
 async def get_reminder(reminder_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user_id)
-    )
+    result = await session.execute(select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user_id))
     reminder = result.scalar_one_or_none()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
@@ -69,9 +65,7 @@ async def create_reminder(body: ReminderCreate, session: AsyncSession = Depends(
 
 @router.patch("/{reminder_id}/pause")
 async def pause_reminder(reminder_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user_id)
-    )
+    result = await session.execute(select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user_id))
     reminder = result.scalar_one_or_none()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
@@ -82,9 +76,7 @@ async def pause_reminder(reminder_id: int, user_id: int, session: AsyncSession =
 
 @router.patch("/{reminder_id}/resume")
 async def resume_reminder(reminder_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user_id)
-    )
+    result = await session.execute(select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user_id))
     reminder = result.scalar_one_or_none()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
@@ -95,9 +87,7 @@ async def resume_reminder(reminder_id: int, user_id: int, session: AsyncSession 
 
 @router.delete("/{reminder_id}", status_code=204)
 async def delete_reminder(reminder_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
-    result = await session.execute(
-        select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user_id)
-    )
+    result = await session.execute(select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user_id))
     reminder = result.scalar_one_or_none()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")

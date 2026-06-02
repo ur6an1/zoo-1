@@ -6,7 +6,19 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from backend.routers import analytics, food, health, medical, payments, pets, reminders, services, subscriptions
+from backend.routers import (
+    admin,
+    analytics,
+    food,
+    health,
+    medical,
+    payments,
+    pets,
+    privacy,
+    reminders,
+    services,
+    subscriptions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,3 +45,5 @@ app.include_router(subscriptions.router)
 app.include_router(payments.router)
 app.include_router(analytics.router)
 app.include_router(services.router)
+app.include_router(admin.router)
+app.include_router(privacy.router)

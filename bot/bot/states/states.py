@@ -90,36 +90,43 @@ class SymptomsForm(StatesGroup):
 
 # ── Новые состояния ──
 
+
 class CompareForm(StatesGroup):
     """Сравнение двух кормов."""
+
     waiting_photo_1 = State()
     waiting_photo_2 = State()
 
 
 class WeightGoalForm(StatesGroup):
     """Установка целевого веса."""
+
     choosing_pet = State()
     target = State()
 
 
 class VoiceNoteForm(StatesGroup):
     """Голосовая заметка."""
+
     choosing_pet = State()
     waiting_voice = State()
 
 
 class WeatherCityForm(StatesGroup):
     """Настройка города для погоды."""
+
     waiting_city = State()
 
 
 class MedicalTestForm(StatesGroup):
     """AI-анализ медицинских анализов."""
+
     choosing_pet = State()
     waiting_photo = State()
 
 
 class ClinicSearchForm(StatesGroup):
     """Поиск ветклиник."""
+
     waiting_location = State()
     waiting_filters = State()

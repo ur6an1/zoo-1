@@ -1,72 +1,69 @@
-"""Сервис AI-анализа через OpenRouter/OpenAI."""
+"""Сервис AI-анализа через OpenRouter.
+
+STT (голос) использует OpenAI Whisper напрямую — OpenRouter audio/transcriptions не предоставляет.
+Остальные запросы (chat + vision) идут только через OpenRouter.
+"""
 
 import base64
 import logging
 
 import aiohttp
-from backend.backend.services.provider_health import mark_ai_unavailable
 from zoo_shared.config import get_settings
+
+from backend.services.provider_health import mark_ai_unavailable
 
 _settings = get_settings()
 
 logger = logging.getLogger(__name__)
 
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 
 def has_any_ai() -> bool:
-    """Есть ли хотя бы один AI-ключ."""
-    return bool(_settings.OPENROUTER_API_KEY or _settings.OPENAI_API_KEY)
+    """Есть ли OpenRouter API-ключ."""
+    return bool(_settings.OPENROUTER_API_KEY)
 
 
 def _provider() -> str | None:
-    if _settings.OPENROUTER_API_KEY:
-        return "openrouter"
-    if _settings.OPENAI_API_KEY:
-        return "openai"
-    return None
+    return "openrouter" if _settings.OPENROUTER_API_KEY else None
 
 
 def _chat_url() -> str:
-    if _provider() == "openrouter":
-        return f"{_settings.OPENROUTER_BASE_URL.rstrip('/')}/chat/completions"
-    return OPENAI_URL
+    return f"{_settings.OPENROUTER_BASE_URL.rstrip('/')}/chat/completions"
 
 
-def _chat_model() -> str:
-    if _provider() == "openrouter":
-        return _settings.OPENROUTER_MODEL
-    return _settings.OPENAI_MODEL
+def _chat_model(for_vision: bool = False) -> str:
+    """Возвращает модель: основную текстовую или vision (для image_url-запросов)."""
+    if for_vision:
+        return _settings.OPENROUTER_VISION_MODEL
+    return _settings.OPENROUTER_MODEL
 
 
 def _chat_headers() -> dict[str, str] | None:
-    provider = _provider()
-    if provider == "openrouter":
-        headers = {
-            "Authorization": f"Bearer {_settings.OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        if _settings.OPENROUTER_SITE_URL:
-            headers["HTTP-Referer"] = _settings.OPENROUTER_SITE_URL
-        if _settings.OPENROUTER_APP_NAME:
-            headers["X-Title"] = _settings.OPENROUTER_APP_NAME
-        return headers
-    if provider == "openai":
-        return {
-            "Authorization": f"Bearer {_settings.OPENAI_API_KEY}",
-            "Content-Type": "application/json",
-        }
-    return None
+    if not _settings.OPENROUTER_API_KEY:
+        return None
+    headers = {
+        "Authorization": f"Bearer {_settings.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    if _settings.OPENROUTER_SITE_URL:
+        headers["HTTP-Referer"] = _settings.OPENROUTER_SITE_URL
+    if _settings.OPENROUTER_APP_NAME:
+        headers["X-Title"] = _settings.OPENROUTER_APP_NAME
+    return headers
 
 
-async def _request_chat_completion(messages: list[dict], max_tokens: int) -> str | None:
+async def _request_chat_completion(
+    messages: list[dict],
+    max_tokens: int,
+    for_vision: bool = False,
+) -> str | None:
     headers = _chat_headers()
     if not headers:
         return None
 
     payload = {
-        "model": _chat_model(),
+        "model": _chat_model(for_vision=for_vision),
         "max_tokens": max_tokens,
         "messages": messages,
     }
@@ -177,7 +174,7 @@ def _make_symptoms_prompt(pet_info: str) -> str:
 
 
 # ══════════════════════════════════════════════
-#  OPENAI (GPT) API
+#  OpenRouter API
 # ══════════════════════════════════════════════
 
 
@@ -187,20 +184,23 @@ async def _gpt_photo(image_b64: str, prompt: str) -> str | None:
         return None
 
     return await _request_chat_completion(
-        [{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/jpeg;base64,{image_b64}",
-                        "detail": "high",
+        [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_b64}",
+                            "detail": "high",
+                        },
                     },
-                },
-                {"type": "text", "text": prompt},
-            ],
-        }],
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
         max_tokens=_settings.AI_MAX_TOKENS_VISION,
+        for_vision=True,
     )
 
 
@@ -281,17 +281,20 @@ async def compare_two_foods(image1_bytes: bytes, image2_bytes: bytes) -> str | N
     img2_b64 = base64.b64encode(image2_bytes).decode("utf-8")
 
     return await _request_chat_completion(
-        [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "Первый корм:"},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img1_b64}", "detail": "high"}},
-                {"type": "text", "text": "Второй корм:"},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img2_b64}", "detail": "high"}},
-                {"type": "text", "text": COMPARE_PROMPT},
-            ],
-        }],
+        [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Первый корм:"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img1_b64}", "detail": "high"}},
+                    {"type": "text", "text": "Второй корм:"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img2_b64}", "detail": "high"}},
+                    {"type": "text", "text": COMPARE_PROMPT},
+                ],
+            }
+        ],
         max_tokens=_settings.AI_MAX_TOKENS_VISION,
+        for_vision=True,
     )
 
 

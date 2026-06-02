@@ -38,8 +38,12 @@ async def test_get_owned_reminder_found(db_session):
     db_session.add(pet)
     await db_session.flush()
     reminder = Reminder(
-        pet_id=pet.id, user_id=42, category="feeding",
-        title="Feed", remind_at=datetime.now(), repeat="once",
+        pet_id=pet.id,
+        user_id=42,
+        category="feeding",
+        title="Feed",
+        remind_at=datetime.now(),
+        repeat="once",
     )
     db_session.add(reminder)
     await db_session.flush()
@@ -56,8 +60,12 @@ async def test_get_owned_reminder_wrong_user(db_session):
     db_session.add(pet)
     await db_session.flush()
     reminder = Reminder(
-        pet_id=pet.id, user_id=42, category="feeding",
-        title="Feed", remind_at=datetime.now(), repeat="once",
+        pet_id=pet.id,
+        user_id=42,
+        category="feeding",
+        title="Feed",
+        remind_at=datetime.now(),
+        repeat="once",
     )
     db_session.add(reminder)
     await db_session.flush()

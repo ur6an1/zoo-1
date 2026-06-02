@@ -1,5 +1,6 @@
-"""Сервис распознавания голосовых сообщений через OpenAI Whisper API."""
+"""Сервис распознавания голосовых сообщений через OpenRouter /audio/transcriptions."""
 
+import base64
 import logging
 
 import aiohttp
@@ -9,52 +10,62 @@ _settings = get_settings()
 
 logger = logging.getLogger(__name__)
 
-WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions"
-WHISPER_MODEL = _settings.OPENAI_TRANSCRIBE_MODEL
+
+def _transcribe_url() -> str:
+    return f"{_settings.OPENROUTER_BASE_URL.rstrip('/')}/audio/transcriptions"
+
+
+def _transcribe_headers() -> dict[str, str] | None:
+    if not _settings.OPENROUTER_API_KEY:
+        return None
+    headers = {
+        "Authorization": f"Bearer {_settings.OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    if _settings.OPENROUTER_SITE_URL:
+        headers["HTTP-Referer"] = _settings.OPENROUTER_SITE_URL
+    if _settings.OPENROUTER_APP_NAME:
+        headers["X-Title"] = _settings.OPENROUTER_APP_NAME
+    return headers
 
 
 async def transcribe_voice(voice_data: bytes) -> str | None:
-    """Распознаёт голосовое сообщение (OGG) через OpenAI Whisper API.
+    """Распознаёт голосовое (Telegram OGG/Opus) через OpenRouter /audio/transcriptions.
 
-    Args:
-        voice_data: Байты аудиофайла (OGG от Telegram).
-
-    Returns:
-        Распознанный текст или None при ошибке.
+    Используется JSON-формат с base64 (OpenRouter не поддерживает multipart, как OpenAI).
     """
-    if not _settings.OPENAI_API_KEY:
-        logger.warning("_settings.OPENAI_API_KEY не задан — распознавание голоса недоступно")
+    headers = _transcribe_headers()
+    if headers is None:
+        logger.warning("OPENROUTER_API_KEY не задан — распознавание голоса недоступно")
+        return None
+    if not voice_data:
         return None
 
-    headers = {
-        "Authorization": f"Bearer {_settings.OPENAI_API_KEY}",
+    payload = {
+        "model": _settings.OPENROUTER_TRANSCRIBE_MODEL,
+        "input_audio": {
+            "data": base64.b64encode(voice_data).decode("ascii"),
+            "format": "ogg",
+        },
+        "language": "ru",
     }
-
-    form = aiohttp.FormData()
-    form.add_field(
-        "file",
-        voice_data,
-        filename="voice.ogg",
-        content_type="audio/ogg",
-    )
-    form.add_field("model", WHISPER_MODEL)
-    form.add_field("language", "ru")
-    form.add_field("response_format", "text")
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                WHISPER_URL,
+                _transcribe_url(),
                 headers=headers,
-                data=form,
+                json=payload,
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 if resp.status != 200:
                     err = await resp.text()
-                    logger.error(f"Whisper API error {resp.status}: {err[:400]}")
+                    logger.error(f"OpenRouter transcription error {resp.status}: {err[:400]}")
                     return None
-                text = await resp.text()
-                return text.strip() if text.strip() else None
+                data = await resp.json(content_type=None)
+                text = (data or {}).get("text") or ""
+                text = text.strip()
+                return text if text else None
     except Exception as e:
-        logger.error(f"Whisper API exception: {e}")
+        logger.error(f"OpenRouter transcription exception: {e}")
         return None

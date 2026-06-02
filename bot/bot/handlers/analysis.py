@@ -6,9 +6,9 @@ from html import escape
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from backend.services.vision import analyze_medical_test
 from zoo_shared.config import get_settings
 
-from backend.backend.services.vision import analyze_medical_test
 from bot import api_client
 from bot.keyboards.keyboards import add_pet_cta_kb, back_to_menu_kb, cancel_kb, main_menu_kb, pets_list_kb
 from bot.states.states import MedicalTestForm
@@ -19,10 +19,7 @@ router = Router(name="analysis")
 
 
 def _no_ai_message() -> str:
-    return (
-        "⚠️ AI-функции временно недоступны.\n\n"
-        "Мы уже работаем над восстановлением. Попробуйте позже."
-    )
+    return "⚠️ AI-функции временно недоступны.\n\nМы уже работаем над восстановлением. Попробуйте позже."
 
 
 def _ai_limit_message() -> str:
@@ -96,7 +93,9 @@ async def cb_analysis_start(callback: CallbackQuery, state: FSMContext):
     ai_ok = await api_client.is_ai_operational()
     if not ai_ok:
         await callback.message.edit_text(
-            _no_ai_message(), parse_mode="HTML", reply_markup=back_to_menu_kb,
+            _no_ai_message(),
+            parse_mode="HTML",
+            reply_markup=back_to_menu_kb,
         )
         await callback.answer()
         return
@@ -181,8 +180,7 @@ async def analysis_photo_received(message: Message, state: FSMContext, bot: Bot)
 
     await bot.send_chat_action(chat_id=message.chat.id, action="typing")
     processing_msg = await message.answer(
-        "🔬 <b>AI расшифровывает анализы...</b>\n\n"
-        "⏳ Глубокий анализ — это может занять несколько секунд...",
+        "🔬 <b>AI расшифровывает анализы...</b>\n\n⏳ Глубокий анализ — это может занять несколько секунд...",
         parse_mode="HTML",
     )
 
@@ -218,8 +216,7 @@ async def analysis_photo_received(message: Message, state: FSMContext, bot: Bot)
     else:
         await api_client.refund_ai_limit(message.from_user.id)
         await processing_msg.edit_text(
-            "😕 AI-сервис временно недоступен или не смог обработать фото.\n"
-            "Попробуйте позже.",
+            "😕 AI-сервис временно недоступен или не смог обработать фото.\nПопробуйте позже.",
             reply_markup=back_to_menu_kb,
         )
 
@@ -228,8 +225,7 @@ async def analysis_photo_received(message: Message, state: FSMContext, bot: Bot)
 async def analysis_not_photo(message: Message):
     """Ожидали фото, получили что-то другое."""
     await message.answer(
-        "📷 Пожалуйста, отправьте <b>фото результатов анализов</b>.\n"
-        "Или нажмите «Отмена».",
+        "📷 Пожалуйста, отправьте <b>фото результатов анализов</b>.\nИли нажмите «Отмена».",
         parse_mode="HTML",
         reply_markup=cancel_kb,
     )

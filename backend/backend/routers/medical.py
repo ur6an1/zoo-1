@@ -24,9 +24,7 @@ router = APIRouter(prefix="/medical", tags=["medical"])
 
 
 async def _check_pet_ownership(session: AsyncSession, user_id: int, pet_id: int) -> Pet:
-    result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id)
-    )
+    result = await session.execute(select(Pet).where(Pet.id == pet_id, Pet.user_id == user_id))
     pet = result.scalar_one_or_none()
     if not pet:
         raise HTTPException(status_code=404, detail="Pet not found")
@@ -40,15 +38,16 @@ async def _check_pet_ownership(session: AsyncSession, user_id: int, pet_id: int)
 async def list_vaccinations(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
     await _check_pet_ownership(session, user_id, pet_id)
     result = await session.execute(
-        select(Vaccination).where(Vaccination.pet_id == pet_id)
-        .order_by(Vaccination.date_done.desc())
+        select(Vaccination).where(Vaccination.pet_id == pet_id).order_by(Vaccination.date_done.desc())
     )
     return result.scalars().all()
 
 
 @router.post("/vaccinations", response_model=VaccinationRead, status_code=201)
 async def create_vaccination(
-    user_id: int, body: VaccinationCreate, session: AsyncSession = Depends(get_session),
+    user_id: int,
+    body: VaccinationCreate,
+    session: AsyncSession = Depends(get_session),
 ):
     await _check_pet_ownership(session, user_id, body.pet_id)
     vac = Vaccination(
@@ -82,15 +81,16 @@ async def delete_vaccination(vac_id: int, user_id: int, session: AsyncSession = 
 async def list_vet_visits(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
     await _check_pet_ownership(session, user_id, pet_id)
     result = await session.execute(
-        select(VetVisit).where(VetVisit.pet_id == pet_id)
-        .order_by(VetVisit.visit_date.desc())
+        select(VetVisit).where(VetVisit.pet_id == pet_id).order_by(VetVisit.visit_date.desc())
     )
     return result.scalars().all()
 
 
 @router.post("/vet_visits", response_model=VetVisitRead, status_code=201)
 async def create_vet_visit(
-    user_id: int, body: VetVisitCreate, session: AsyncSession = Depends(get_session),
+    user_id: int,
+    body: VetVisitCreate,
+    session: AsyncSession = Depends(get_session),
 ):
     await _check_pet_ownership(session, user_id, body.pet_id)
     visit = VetVisit(
@@ -124,15 +124,16 @@ async def delete_vet_visit(visit_id: int, user_id: int, session: AsyncSession = 
 async def list_weight_records(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
     await _check_pet_ownership(session, user_id, pet_id)
     result = await session.execute(
-        select(WeightRecord).where(WeightRecord.pet_id == pet_id)
-        .order_by(WeightRecord.recorded_at.desc())
+        select(WeightRecord).where(WeightRecord.pet_id == pet_id).order_by(WeightRecord.recorded_at.desc())
     )
     return result.scalars().all()
 
 
 @router.post("/weight", response_model=WeightRecordRead, status_code=201)
 async def create_weight_record(
-    user_id: int, body: WeightRecordCreate, session: AsyncSession = Depends(get_session),
+    user_id: int,
+    body: WeightRecordCreate,
+    session: AsyncSession = Depends(get_session),
 ):
     await _check_pet_ownership(session, user_id, body.pet_id)
     record = WeightRecord(pet_id=body.pet_id, weight=body.weight)
@@ -149,14 +150,16 @@ async def create_weight_record(
 async def list_documents(pet_id: int, user_id: int, session: AsyncSession = Depends(get_session)):
     await _check_pet_ownership(session, user_id, pet_id)
     result = await session.execute(
-        select(Document).where(Document.pet_id == pet_id)
-        .order_by(Document.uploaded_at.desc())
+        select(Document).where(Document.pet_id == pet_id).order_by(Document.uploaded_at.desc())
     )
     docs = result.scalars().all()
     return [
         {
-            "id": d.id, "pet_id": d.pet_id, "doc_type": d.doc_type,
-            "file_id": d.file_id, "description": d.description,
+            "id": d.id,
+            "pet_id": d.pet_id,
+            "doc_type": d.doc_type,
+            "file_id": d.file_id,
+            "description": d.description,
             "uploaded_at": d.uploaded_at.isoformat(),
         }
         for d in docs
@@ -174,14 +177,20 @@ async def create_document(
 ):
     await _check_pet_ownership(session, user_id, pet_id)
     doc = Document(
-        pet_id=pet_id, doc_type=doc_type, file_id=file_id, description=description,
+        pet_id=pet_id,
+        doc_type=doc_type,
+        file_id=file_id,
+        description=description,
     )
     session.add(doc)
     await session.commit()
     await session.refresh(doc)
     return {
-        "id": doc.id, "pet_id": doc.pet_id, "doc_type": doc.doc_type,
-        "file_id": doc.file_id, "description": doc.description,
+        "id": doc.id,
+        "pet_id": doc.pet_id,
+        "doc_type": doc.doc_type,
+        "file_id": doc.file_id,
+        "description": doc.description,
         "uploaded_at": doc.uploaded_at.isoformat(),
     }
 
@@ -214,22 +223,22 @@ async def calendar_events(user_id: int, session: AsyncSession = Depends(get_sess
         return {"pets": [], "reminders": [], "vaccinations": [], "vet_visits": []}
 
     reminders_result = await session.execute(
-        select(Reminder).where(
+        select(Reminder)
+        .where(
             Reminder.user_id == user_id,
             Reminder.is_active == True,  # noqa: E712
-        ).order_by(Reminder.remind_at)
+        )
+        .order_by(Reminder.remind_at)
     )
     reminders = reminders_result.scalars().all()
 
     vac_result = await session.execute(
-        select(Vaccination).where(Vaccination.pet_id.in_(pet_ids))
-        .order_by(Vaccination.date_done.desc())
+        select(Vaccination).where(Vaccination.pet_id.in_(pet_ids)).order_by(Vaccination.date_done.desc())
     )
     vaccinations = vac_result.scalars().all()
 
     visit_result = await session.execute(
-        select(VetVisit).where(VetVisit.pet_id.in_(pet_ids))
-        .order_by(VetVisit.visit_date.desc())
+        select(VetVisit).where(VetVisit.pet_id.in_(pet_ids)).order_by(VetVisit.visit_date.desc())
     )
     visits = visit_result.scalars().all()
 
@@ -237,23 +246,32 @@ async def calendar_events(user_id: int, session: AsyncSession = Depends(get_sess
         "pets": [{"id": p.id, "name": p.name} for p in pets],
         "reminders": [
             {
-                "id": r.id, "pet_id": r.pet_id, "pet_name": pet_map.get(r.pet_id, ""),
-                "title": r.title, "category_emoji": r.category_emoji,
-                "remind_at": r.remind_at.isoformat(), "repeat_text": r.repeat_text,
+                "id": r.id,
+                "pet_id": r.pet_id,
+                "pet_name": pet_map.get(r.pet_id, ""),
+                "title": r.title,
+                "category_emoji": r.category_emoji,
+                "remind_at": r.remind_at.isoformat(),
+                "repeat_text": r.repeat_text,
             }
             for r in reminders
         ],
         "vaccinations": [
             {
-                "id": v.id, "pet_id": v.pet_id, "pet_name": pet_map.get(v.pet_id, ""),
-                "name": v.name, "date_done": v.date_done.isoformat(),
+                "id": v.id,
+                "pet_id": v.pet_id,
+                "pet_name": pet_map.get(v.pet_id, ""),
+                "name": v.name,
+                "date_done": v.date_done.isoformat(),
                 "next_date": v.next_date.isoformat() if v.next_date else None,
             }
             for v in vaccinations
         ],
         "vet_visits": [
             {
-                "id": vv.id, "pet_id": vv.pet_id, "pet_name": pet_map.get(vv.pet_id, ""),
+                "id": vv.id,
+                "pet_id": vv.pet_id,
+                "pet_name": pet_map.get(vv.pet_id, ""),
                 "visit_date": vv.visit_date.isoformat(),
                 "diagnosis": vv.diagnosis,
             }

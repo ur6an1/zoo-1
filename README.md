@@ -116,6 +116,9 @@ make migrate
 - `BOT_TOKEN` — токен Telegram-бота
 - `POSTGRES_PASSWORD` — пароль для PostgreSQL
 
+**Опциональные (для AI-функций):**
+- `OPENROUTER_API_KEY` — единый ключ для всех AI-сценариев: текст (консультант), vision (фото питомца/корма, сравнение, расшифровка анализов) и транскрипция голосовых через OpenRouter `/audio/transcriptions`. Без него все AI-функции возвращают «недоступно».
+
 ## CI/CD
 
 При пуше в `main` автоматически запускается GitHub Actions workflow:
