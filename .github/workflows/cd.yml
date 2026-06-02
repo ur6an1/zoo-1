@@ -22,10 +22,30 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     environment: production
     steps:
+      - name: Check deploy secrets
+        id: deploy_config
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_PATH: ${{ secrets.PROD_PATH }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PROD_SSH_KEY:-}" ] || [ -z "${PROD_HOST:-}" ] || [ -z "${PROD_PORT:-}" ] || \
+             [ -z "${PROD_USER:-}" ] || [ -z "${PROD_PATH:-}" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Deploy skipped: production SSH secrets are not configured."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.deploy_config.outputs.enabled == 'true'
         uses: actions/checkout@v4
 
       - name: Configure SSH
+        if: steps.deploy_config.outputs.enabled == 'true'
         env:
           PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           PROD_HOST: ${{ secrets.PROD_HOST }}
@@ -40,6 +60,7 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy over SSH
+        if: steps.deploy_config.outputs.enabled == 'true'
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_PORT: ${{ secrets.PROD_PORT }}
