@@ -46,8 +46,15 @@ class Settings(BaseSettings):
     # Admin
     ADMIN_IDS: list[int] = []
 
+    # Legal docs
+    LEGAL_SELLER_NAME: str = ""
+    LEGAL_SELLER_INN: str = ""
+    LEGAL_SUPPORT_CONTACT: str = ""
+    LEGAL_SUPPORT_EMAIL: str = ""
+
     # Internal
     BACKEND_URL: str = "http://backend:8000"
+    INTERNAL_API_KEY: str = ""
 
     @field_validator("ADMIN_IDS", mode="before")
     @classmethod
@@ -62,6 +69,12 @@ class Settings(BaseSettings):
             if chunk.isdigit():
                 ids.append(int(chunk))
         return ids
+
+    @property
+    def legal_docs_configured(self) -> bool:
+        return all(
+            value.strip() for value in (self.LEGAL_SELLER_NAME, self.LEGAL_SELLER_INN, self.LEGAL_SUPPORT_CONTACT)
+        )
 
 
 @lru_cache

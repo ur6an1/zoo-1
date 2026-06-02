@@ -15,6 +15,7 @@ from aiogram.types import (
 from yookassa import Configuration
 from yookassa import Payment as YooPayment
 from zoo_shared.config import get_settings
+from zoo_shared.payments import PAYMENT_PLANS, normalize_money_value
 
 from bot import api_client
 from bot.keyboards.keyboards import main_menu_kb
@@ -23,31 +24,7 @@ from bot.utils.helpers import callback_part
 logger = logging.getLogger(__name__)
 router = Router(name="payment")
 
-PLANS = {
-    "basic": {
-        "name": "🐾 Базовый",
-        "price": 199,
-        "days": 30,
-        "stars": 150,
-        "tier": "basic",
-    },
-    "pro": {
-        "name": "⭐ PRO",
-        "price": 299,
-        "days": 30,
-        "stars": 200,
-        "tier": "pro",
-    },
-}
-
-
-def _normalize_money_value(value: str | int | float | None) -> str:
-    if value in (None, ""):
-        return ""
-    try:
-        return f"{float(value):.2f}"
-    except (TypeError, ValueError):
-        return str(value).strip()
+PLANS = PAYMENT_PLANS
 
 
 def _payment_methods_note(card_available: bool) -> str:
@@ -198,8 +175,8 @@ async def _reconcile_card_payment(
 
     amount_raw = getattr(getattr(payment, "amount", None), "value", "")
     currency_raw = getattr(getattr(payment, "amount", None), "currency", "")
-    amount_value = _normalize_money_value(amount_raw)
-    expected_amount = _normalize_money_value(plan["price"])
+    amount_value = normalize_money_value(amount_raw)
+    expected_amount = normalize_money_value(plan["price"])
     currency_value = str(currency_raw or "").strip().upper()
     if amount_value != expected_amount or currency_value != "RUB":
         await api_client.update_pending_payment(
@@ -476,7 +453,7 @@ async def pay_card(callback: CallbackQuery):
         payment_id=pid,
         user_id=callback.from_user.id,
         plan_key=plan_key,
-        amount_value=_normalize_money_value(plan["price"]),
+        amount_value=normalize_money_value(plan["price"]),
         currency="RUB",
     )
     await api_client.track_event(

@@ -1,8 +1,7 @@
 """Юридические документы и поддержка: /terms, /privacy, /support, /delete_me.
 
-⚠️ ПЕРЕД ЗАПУСКОМ ЗАПОЛНИТЬ реквизиты продавца и контакт поддержки ниже.
-Тексты — рабочие шаблоны под подписочный инфосервис в РФ; при росте оборота
-показать юристу.
+Реквизиты берутся из env: LEGAL_SELLER_NAME, LEGAL_SELLER_INN,
+LEGAL_SUPPORT_CONTACT, LEGAL_SUPPORT_EMAIL.
 """
 
 from __future__ import annotations
@@ -12,18 +11,23 @@ import logging
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from zoo_shared.config import get_settings
 
 from bot import api_client
 
 logger = logging.getLogger(__name__)
 router = Router(name="legal")
+settings = get_settings()
 
-# ═══════════ РЕКВИЗИТЫ — ЗАПОЛНИТЬ ПЕРЕД ПЛАТНЫМ ТРАФИКОМ ═══════════
-SELLER_NAME = "Самозанятый (НПД) [ФИО — ЗАПОЛНИТЬ]"
-SELLER_INN = "[ИНН — ЗАПОЛНИТЬ]"
-SUPPORT_CONTACT = "@zoobuddy_support"  # TODO: реальный телеграм поддержки
-SUPPORT_EMAIL = "[email — ЗАПОЛНИТЬ]"
-# ═══════════════════════════════════════════════════════════════════
+SELLER_NAME = settings.LEGAL_SELLER_NAME.strip() or "Реквизиты продавца не заполнены"
+SELLER_INN = settings.LEGAL_SELLER_INN.strip() or "не указан"
+SUPPORT_CONTACT = settings.LEGAL_SUPPORT_CONTACT.strip() or "не указан"
+SUPPORT_EMAIL = settings.LEGAL_SUPPORT_EMAIL.strip() or "не указан"
+LEGAL_CONFIG_WARNING = (
+    ""
+    if settings.legal_docs_configured
+    else "\n\n⚠️ <b>Реквизиты продавца не заполнены.</b> До запуска платного трафика заполните legal-поля в env."
+)
 
 OFFER_TEXT = (
     "📄 <b>Публичная оферта</b>\n\n"
@@ -43,6 +47,7 @@ OFFER_TEXT = (
     "При острых симптомах немедленно обратитесь в ветклинику.\n\n"
     f"<b>6. Поддержка:</b> {SUPPORT_CONTACT}\n"
     "Принимая оферту, вы соглашаетесь с Политикой конфиденциальности (/privacy)."
+    f"{LEGAL_CONFIG_WARNING}"
 )
 
 PRIVACY_TEXT = (
@@ -59,6 +64,7 @@ PRIVACY_TEXT = (
     "(YooKassa / Telegram) для проведения оплаты и AI-провайдера для генерации ответов.\n\n"
     "<b>6. Ваши права.</b> Вы можете удалить все свои данные командой /delete_me. "
     f"Вопросы по данным: {SUPPORT_CONTACT}, {SUPPORT_EMAIL}."
+    f"{LEGAL_CONFIG_WARNING}"
 )
 
 

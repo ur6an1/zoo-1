@@ -19,6 +19,7 @@ from backend.routers import (
     services,
     subscriptions,
 )
+from backend.security import require_internal_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ZooBuddy API", version="0.1.0", lifespan=lifespan)
+app.middleware("http")(require_internal_api_key)
 
 app.include_router(health.router)
 app.include_router(pets.router)

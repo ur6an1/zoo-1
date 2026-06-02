@@ -1,6 +1,7 @@
 x-shared-env: &shared-env
   DATABASE_URL: postgresql+asyncpg://zoo:${POSTGRES_PASSWORD:-changeme}@postgres:5432/zoo_bot
   REDIS_URL: redis://redis:6379/0
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
 
 x-logging: &default-logging
   driver: json-file
@@ -74,6 +75,10 @@ services:
       AI_MAX_TOKENS_VISION: ${AI_MAX_TOKENS_VISION:-1600}
       AI_MAX_TOKENS_TEXT: ${AI_MAX_TOKENS_TEXT:-1800}
       ADMIN_IDS: ${ADMIN_IDS:-}
+      LEGAL_SELLER_NAME: ${LEGAL_SELLER_NAME:-}
+      LEGAL_SELLER_INN: ${LEGAL_SELLER_INN:-}
+      LEGAL_SUPPORT_CONTACT: ${LEGAL_SUPPORT_CONTACT:-}
+      LEGAL_SUPPORT_EMAIL: ${LEGAL_SUPPORT_EMAIL:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,6 +110,10 @@ services:
       OPENROUTER_APP_NAME: ${OPENROUTER_APP_NAME:-zoo_bot}
       AI_MAX_TOKENS_VISION: ${AI_MAX_TOKENS_VISION:-1600}
       AI_MAX_TOKENS_TEXT: ${AI_MAX_TOKENS_TEXT:-1800}
+      LEGAL_SELLER_NAME: ${LEGAL_SELLER_NAME:-}
+      LEGAL_SELLER_INN: ${LEGAL_SELLER_INN:-}
+      LEGAL_SUPPORT_CONTACT: ${LEGAL_SUPPORT_CONTACT:-}
+      LEGAL_SUPPORT_EMAIL: ${LEGAL_SUPPORT_EMAIL:-}
     depends_on:
       backend:
         condition: service_healthy
@@ -121,8 +130,13 @@ services:
       <<: *shared-env
       BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}
       BOT_TIMEZONE: ${BOT_TIMEZONE:-Europe/Moscow}
+      BACKEND_URL: http://backend:8000
       WEATHER_API_KEY: ${WEATHER_API_KEY:-}
+      YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
+      YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
     depends_on:
+      backend:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:

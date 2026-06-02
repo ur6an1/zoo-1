@@ -16,10 +16,15 @@ _BASE = _settings.BACKEND_URL
 _client: httpx.AsyncClient | None = None
 
 
+def _internal_headers() -> dict[str, str]:
+    key = _settings.INTERNAL_API_KEY.strip()
+    return {"X-Internal-API-Key": key} if key else {}
+
+
 async def get_client() -> httpx.AsyncClient:
     global _client
     if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(base_url=_BASE, timeout=30.0)
+        _client = httpx.AsyncClient(base_url=_BASE, timeout=30.0, headers=_internal_headers())
     return _client
 
 
@@ -527,7 +532,7 @@ async def mark_payment_processed(
     payment_id: str,
     user_id: int,
     plan_key: str,
-) -> tuple[bool, bool]:
+) -> dict[str, bool]:
     c = await get_client()
     r = await c.post(
         "/payments/mark_processed",
@@ -540,7 +545,9 @@ async def mark_payment_processed(
     )
     r.raise_for_status()
     data = r.json()
-    return data["ok"], data["duplicate"]
+    success = bool(data.get("ok"))
+    duplicate = bool(data.get("duplicate"))
+    return {"success": success, "ok": success, "duplicate": duplicate}
 
 
 async def upsert_pending_payment(
