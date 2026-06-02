@@ -141,19 +141,6 @@ class TestPrompts:
 
 # ── async functions: early return when no AI keys ─────────────────────────────
 
-import pytest
-from backend.services.vision import (
-    _gpt_photo,
-    _gpt_text,
-    analyze_food_for_pet,
-    analyze_food_photo,
-    analyze_medical_test,
-    analyze_pet_photo,
-    compare_two_foods,
-    consult_symptoms,
-    transcribe_voice,
-)
-
 
 @pytest.fixture(autouse=False)
 def no_ai_keys(monkeypatch):

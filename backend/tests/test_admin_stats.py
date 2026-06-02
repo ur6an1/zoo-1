@@ -16,9 +16,8 @@ from unittest.mock import patch  # noqa: E402
 
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: E402
-
 from backend.services import admin_stats  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: E402
 from zoo_shared.db.models import (  # noqa: E402
     AnalyticsEvent,
     Base,

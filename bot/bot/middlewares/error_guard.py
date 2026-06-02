@@ -41,7 +41,11 @@ class ErrorGuardMiddleware(BaseMiddleware):
         if bot is None:
             return
         uid = getattr(getattr(event, "from_user", None), "id", "?")
-        text = f"\U0001f6a8 <b>Ошибка в боте</b>\n<code>{type(exc).__name__}: {str(exc)[:200]}</code>\nuser: <code>{uid}</code>"
+        text = (
+            "\U0001f6a8 <b>Ошибка в боте</b>\n"
+            f"<code>{type(exc).__name__}: {str(exc)[:200]}</code>\n"
+            f"user: <code>{uid}</code>"
+        )
         await notify_admins(bot, text, key=f"err:{type(exc).__name__}", min_interval=300.0)
 
     @staticmethod

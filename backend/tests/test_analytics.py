@@ -53,11 +53,6 @@ class TestAnalyticsConstants:
 
 # ── DB tests ─────────────────────────────────────────────────
 
-from contextlib import asynccontextmanager
-from unittest.mock import patch
-
-import pytest
-
 _MOD = "backend.services.analytics"
 
 

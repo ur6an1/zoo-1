@@ -17,7 +17,10 @@ async def _get_weather(city: str) -> dict | None:
 
     try:
         async with aiohttp.ClientSession() as cs:
-            async with cs.get(f"https://wttr.in/{city}?format=j1&lang=ru", timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with cs.get(
+                f"https://wttr.in/{city}?format=j1&lang=ru",
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
                 if resp.status != 200:
                     return None
                 data = await resp.json(content_type=None)
