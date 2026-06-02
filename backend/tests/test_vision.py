@@ -3,6 +3,8 @@
 import asyncio
 import os
 
+import pytest
+
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("BOT_TOKEN", "fake:token")
 os.environ.setdefault("REDIS_URL", "")
@@ -14,10 +16,19 @@ from backend.services.vision import (
     _chat_headers,
     _chat_model,
     _chat_url,
+    _gpt_photo,
+    _gpt_text,
     _make_nutrition_prompt,
     _make_symptoms_prompt,
     _provider,
+    analyze_food_for_pet,
+    analyze_food_photo,
+    analyze_medical_test,
+    analyze_pet_photo,
+    compare_two_foods,
+    consult_symptoms,
     has_any_ai,
+    transcribe_voice,
 )
 
 

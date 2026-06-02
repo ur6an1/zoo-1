@@ -1,6 +1,10 @@
 """Tests for backend.services.analytics — constants and structure."""
 
 import os
+from contextlib import asynccontextmanager
+from unittest.mock import patch
+
+import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("BOT_TOKEN", "fake:token")

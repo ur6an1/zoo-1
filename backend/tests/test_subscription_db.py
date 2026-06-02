@@ -50,7 +50,6 @@ def sub_db(db_session):
 async def test_grant_premium_creates_new_user(sub_db):
     ok = await grant_premium(20001, days=30)
     assert ok is True
-    s = await sub_db.get(UserSettings, None)
     result = await get_or_create_settings(20001)
     assert result.is_premium is True
     assert result.plan_tier == PLAN_PRO
