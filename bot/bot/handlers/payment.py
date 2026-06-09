@@ -18,7 +18,7 @@ from zoo_shared.config import get_settings
 from zoo_shared.payments import PAYMENT_PLANS, normalize_money_value
 
 from bot import api_client
-from bot.keyboards.keyboards import main_menu_kb
+from bot.keyboards.keyboards import back_to_menu_kb, main_menu_kb
 from bot.utils.helpers import callback_part
 
 logger = logging.getLogger(__name__)
@@ -38,12 +38,16 @@ def _payment_methods_note(card_available: bool) -> str:
     )
 
 
-async def _send_card_success_message(bot: Bot, user_id: int, plan_name: str, until: str) -> None:
+async def _send_card_success_message(bot: Bot, user_id: int, plan_key: str, plan_name: str, until: str) -> None:
     await bot.send_message(
         chat_id=user_id,
-        text=(f"✅ Подписка <b>{plan_name}</b> активирована!\nДействует до {until}.\n\nГлавное меню ниже."),
+        text=(
+            f"✅ Подписка <b>{plan_name}</b> активирована!\n"
+            f"Действует до {until}.\n\n"
+            "Выберите первое платное действие:"
+        ),
         parse_mode="HTML",
-        reply_markup=main_menu_kb,
+        reply_markup=post_payment_activation_kb(plan_key),
     )
 
 
@@ -238,7 +242,7 @@ async def _reconcile_card_payment(
 
     if bot and notify_user:
         try:
-            await _send_card_success_message(bot, user_id, plan["name"], until)
+            await _send_card_success_message(bot, user_id, meta_plan_key, plan["name"], until)
         except Exception as e:
             logger.warning("Не удалось отправить авто-подтверждение оплаты %s: %s", payment_id, e)
 
@@ -295,6 +299,21 @@ def payment_methods_kb(plan_key: str, card_available: bool) -> InlineKeyboardMar
             [InlineKeyboardButton(text="◀️ Назад", callback_data="zoo_back_plans")],
         ]
     )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def post_payment_activation_kb(plan_key: str) -> InlineKeyboardMarkup:
+    """CTA после оплаты: ведём пользователя сразу в платную ценность, а не в тупик."""
+    rows = [
+        [InlineKeyboardButton(text="🩺 Открыть AI-консультанта", callback_data="ai:symptoms")],
+        [InlineKeyboardButton(text="🥗 Подобрать питание", callback_data="ai:nutrition")],
+    ]
+    if plan_key == "pro":
+        rows.insert(0, [InlineKeyboardButton(text="🎙 Добавить голосовую заметку", callback_data="voice:add")])
+        rows.append(
+            [InlineKeyboardButton(text="🌤 Включить погодные уведомления", callback_data="settings:weather_toggle")]
+        )
+    rows.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -547,13 +566,17 @@ async def check_card(callback: CallbackQuery):
         await callback.message.edit_text(
             f"ℹ️ Этот платёж уже обработан ранее.\nТекущий срок подписки: {details}.",
             parse_mode="HTML",
+            reply_markup=back_to_menu_kb,
         )
         await callback.answer("Платёж уже обработан", show_alert=True)
         return
 
     await callback.message.edit_text(
-        f"✅ Подписка <b>{plan['name']}</b> активирована!\nДействует до {details}.",
+        f"✅ Подписка <b>{plan['name']}</b> активирована!\n"
+        f"Действует до {details}.\n\n"
+        "Выберите первое платное действие:",
         parse_mode="HTML",
+        reply_markup=post_payment_activation_kb(plan_key),
     )
     await callback.message.answer("Главное меню 👇", reply_markup=main_menu_kb)
     await callback.answer()
@@ -697,7 +720,9 @@ async def successful_payment(message: Message):
     until = sub.get("premium_until_str", "бессрочно")
 
     await message.answer(
-        f"✅ Подписка <b>{plan['name']}</b> активирована!\nДействует до {until}.",
-        reply_markup=main_menu_kb,
+        f"✅ Подписка <b>{plan['name']}</b> активирована!\n"
+        f"Действует до {until}.\n\n"
+        "Выберите первое платное действие:",
+        reply_markup=post_payment_activation_kb(plan_key),
         parse_mode="HTML",
     )

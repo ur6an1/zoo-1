@@ -8,6 +8,7 @@ from bot.handlers.calendar_view import router as calendar_router
 from bot.handlers.common import router as common_router
 from bot.handlers.compare import router as compare_router
 from bot.handlers.emergency import router as emergency_router
+from bot.handlers.fallback import router as fallback_router
 from bot.handlers.food import router as food_router
 from bot.handlers.legal import router as legal_router
 from bot.handlers.medical import router as medical_router
@@ -45,4 +46,5 @@ def get_all_routers() -> list[Router]:
         subscription_router,
         payment_router,
         weather_handler_router,
+        fallback_router,
     ]

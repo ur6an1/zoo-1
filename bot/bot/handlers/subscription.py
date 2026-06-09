@@ -11,6 +11,7 @@ from zoo_shared.config import get_settings
 from bot import api_client
 from bot.keyboards.keyboards import back_to_menu_kb, cancel_kb, main_menu_kb, settings_menu_kb
 from bot.states.states import WeatherCityForm
+from bot.utils.helpers import message_text
 
 logger = logging.getLogger(__name__)
 router = Router(name="subscription")
@@ -199,7 +200,7 @@ async def cb_weather_city(callback: CallbackQuery, state: FSMContext):
 @router.message(WeatherCityForm.waiting_city, F.text)
 async def weather_city_entered(message: Message, state: FSMContext):
     """Пользователь ввёл город — сохраняем."""
-    city = message.text.strip()
+    city = message_text(message.text)
     if not city or len(city) > 200:
         await message.answer(
             "⚠️ Введите корректное название города (до 200 символов).",

@@ -24,7 +24,7 @@ from bot.keyboards.keyboards import (
     water_action_kb,
 )
 from bot.states.states import AllergyForm, FoodForm, WaterForm
-from bot.utils.helpers import callback_int, format_datetime, parse_amount
+from bot.utils.helpers import callback_int, format_datetime, message_text, parse_amount
 
 logger = logging.getLogger(__name__)
 router = Router(name="food")
@@ -137,9 +137,9 @@ async def cb_meal_pet(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(FoodForm.food_name)
+@router.message(FoodForm.food_name, F.text)
 async def meal_name(message: Message, state: FSMContext):
-    name = message.text.strip()
+    name = message_text(message.text)
     if not name or len(name) > 200:
         await message.answer("⚠️ Название от 1 до 200 символов:")
         return
@@ -151,9 +151,9 @@ async def meal_name(message: Message, state: FSMContext):
     )
 
 
-@router.message(FoodForm.portion)
+@router.message(FoodForm.portion, F.text)
 async def meal_portion(message: Message, state: FSMContext):
-    portion = message.text.strip()
+    portion = message_text(message.text)
     if portion == "-":
         portion = ""
     await state.update_data(portion=portion)
@@ -164,9 +164,9 @@ async def meal_portion(message: Message, state: FSMContext):
     )
 
 
-@router.message(FoodForm.notes)
+@router.message(FoodForm.notes, F.text)
 async def meal_notes(message: Message, state: FSMContext):
-    notes = message.text.strip()
+    notes = message_text(message.text)
     if notes == "-":
         notes = ""
     data = await state.get_data()
@@ -262,7 +262,7 @@ async def cb_water_pet(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(WaterForm.amount)
+@router.message(WaterForm.amount, F.text)
 async def water_amount(message: Message, state: FSMContext):
     amount = parse_amount(message.text)
     if amount is None:
@@ -350,9 +350,9 @@ async def cb_allergy_pet(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(AllergyForm.allergen)
+@router.message(AllergyForm.allergen, F.text)
 async def allergy_allergen(message: Message, state: FSMContext):
-    allergen = message.text.strip()
+    allergen = message_text(message.text)
     if not allergen or len(allergen) > 200:
         await message.answer("⚠️ Введите название (от 1 до 200 символов):")
         return
@@ -364,9 +364,9 @@ async def allergy_allergen(message: Message, state: FSMContext):
     )
 
 
-@router.message(AllergyForm.reaction)
+@router.message(AllergyForm.reaction, F.text)
 async def allergy_reaction(message: Message, state: FSMContext):
-    reaction = message.text.strip()
+    reaction = message_text(message.text)
     if reaction == "-":
         reaction = ""
     await state.update_data(reaction=reaction)
@@ -374,9 +374,9 @@ async def allergy_reaction(message: Message, state: FSMContext):
     await message.answer("📝 Заметки (или <b>-</b>):", parse_mode="HTML")
 
 
-@router.message(AllergyForm.notes)
+@router.message(AllergyForm.notes, F.text)
 async def allergy_notes(message: Message, state: FSMContext):
-    notes = message.text.strip()
+    notes = message_text(message.text)
     if notes == "-":
         notes = ""
     data = await state.get_data()

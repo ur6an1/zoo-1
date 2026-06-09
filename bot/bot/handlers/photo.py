@@ -4,6 +4,7 @@ import logging
 from html import escape
 
 from aiogram import Bot, F, Router
+from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from backend.services.vision import (
@@ -25,7 +26,7 @@ from bot.keyboards.keyboards import (
     photo_menu_kb,
 )
 from bot.states.states import NutritionForm, SymptomsForm
-from bot.utils.helpers import callback_int, format_date
+from bot.utils.helpers import callback_int, format_ai_result, format_date, message_text
 
 logger = logging.getLogger(__name__)
 router = Router(name="photo")
@@ -305,11 +306,8 @@ async def nutrition_photo_received(message: Message, state: FSMContext, bot: Bot
     result = await analyze_food_for_pet(image_data, pet_info)
 
     if result:
-        if len(result) > 4000:
-            result = result[:4000] + "..."
-        safe_result = escape(result)
         await processing_msg.edit_text(
-            f"🥗 <b>Результат подбора питания:</b>\n\n{safe_result}",
+            format_ai_result("🥗 <b>Результат подбора питания:</b>", result),
             parse_mode="HTML",
             reply_markup=back_to_menu_kb,
         )
@@ -431,7 +429,7 @@ async def symptoms_pet_chosen(callback: CallbackQuery, state: FSMContext):
 @router.message(SymptomsForm.waiting_text, F.text)
 async def symptoms_text_received(message: Message, state: FSMContext, bot: Bot):
     """Получено описание симптомов — отправляем AI."""
-    text = message.text.strip()
+    text = message_text(message.text)
     if len(text) < 5:
         await message.answer(
             "⚠️ Опишите симптомы подробнее (минимум 5 символов).",
@@ -461,13 +459,12 @@ async def symptoms_text_received(message: Message, state: FSMContext, bot: Bot):
     result = await consult_symptoms(text, pet_info)
 
     if result:
-        if len(result) > 4000:
-            result = result[:4000] + "..."
-        safe_result = escape(result)
         await processing_msg.edit_text(
-            f"🩺 <b>Консультация AI:</b>\n\n{safe_result}\n\n"
-            f"─────────────────\n"
-            f"💬 Можете задать ещё вопрос или нажать «Отмена» для выхода.",
+            format_ai_result(
+                "🩺 <b>Консультация AI:</b>",
+                result,
+                footer="─────────────────\n💬 Можете задать ещё вопрос или нажать «Отмена» для выхода.",
+            ),
             parse_mode="HTML",
             reply_markup=cancel_kb,
         )
@@ -529,14 +526,12 @@ async def symptoms_voice_received(message: Message, state: FSMContext, bot: Bot)
     result = await consult_symptoms(text, pet_info)
 
     if result:
-        if len(result) > 4000:
-            result = result[:4000] + "..."
-        safe_result = escape(result)
         await transcribing_msg.edit_text(
-            f"🎙 <b>Вы сказали:</b> <i>«{escape(text)}»</i>\n\n"
-            f"🩺 <b>Консультация AI:</b>\n\n{safe_result}\n\n"
-            f"─────────────────\n"
-            f"💬 Можете задать ещё вопрос (текст или голос) или «Отмена».",
+            format_ai_result(
+                f"🎙 <b>Вы сказали:</b> <i>«{escape(text)}»</i>\n\n🩺 <b>Консультация AI:</b>",
+                result,
+                footer="─────────────────\n💬 Можете задать ещё вопрос (текст или голос) или «Отмена».",
+            ),
             parse_mode="HTML",
             reply_markup=cancel_kb,
         )
@@ -581,12 +576,19 @@ async def handle_photo(message: Message, state: FSMContext, bot: Bot):
         CompareForm.waiting_photo_2.state,
     ]
     if current_state in protected_states:
-        return
+        raise SkipHandler()
+    if current_state:
+        raise SkipHandler()
 
     data = await state.get_data()
     mode = data.get("photo_mode")
 
     if mode is None:
+        await message.answer(
+            "📷 Фото получил. Чтобы запустить AI-анализ, откройте раздел распознавания фото.",
+            parse_mode="HTML",
+            reply_markup=photo_menu_kb,
+        )
         return
 
     ai_ok = await api_client.is_ai_operational()
@@ -624,11 +626,8 @@ async def handle_photo(message: Message, state: FSMContext, bot: Bot):
     await state.update_data(photo_mode=None)
 
     if result:
-        if len(result) > 4000:
-            result = result[:4000] + "..."
-        safe_result = escape(result)
         await processing_msg.edit_text(
-            f"✨ <b>Результат анализа:</b>\n\n{safe_result}",
+            format_ai_result("✨ <b>Результат анализа:</b>", result),
             parse_mode="HTML",
             reply_markup=photo_menu_kb,
         )
@@ -652,7 +651,9 @@ async def handle_voice_anywhere(message: Message, state: FSMContext, bot: Bot):
     from bot.states.states import VoiceNoteForm
 
     if current_state in [VoiceNoteForm.waiting_voice.state]:
-        return
+        raise SkipHandler()
+    if current_state:
+        raise SkipHandler()
 
     ai_ok = await api_client.is_ai_operational()
     if not ai_ok:
@@ -709,13 +710,12 @@ async def handle_voice_anywhere(message: Message, state: FSMContext, bot: Bot):
     result = await consult_symptoms(text, pet_info)
 
     if result:
-        if len(result) > 4000:
-            result = result[:4000] + "..."
-        safe_result = escape(result)
-
         pet_note = f" (для {pet.get('species_emoji', '🐾')} {escape(pet['name'])})" if pet else ""
         await processing_msg.edit_text(
-            f"🎙 <b>Вы сказали:</b> <i>«{escape(text)}»</i>{pet_note}\n\n🩺 <b>AI-консультация:</b>\n\n{safe_result}",
+            format_ai_result(
+                f"🎙 <b>Вы сказали:</b> <i>«{escape(text)}»</i>{pet_note}\n\n🩺 <b>AI-консультация:</b>",
+                result,
+            ),
             parse_mode="HTML",
             reply_markup=back_to_menu_kb,
         )

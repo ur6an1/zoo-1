@@ -18,10 +18,10 @@ from bot.keyboards.keyboards import (
     med_section_kb,
     medical_menu_kb,
     pets_list_kb,
-    skip_kb,
+    skip_cancel_kb,
 )
 from bot.states.states import DocumentForm, VaccinationForm, VetVisitForm, WeightForm
-from bot.utils.helpers import callback_int, format_date, parse_date, parse_weight
+from bot.utils.helpers import callback_int, format_date, message_text, parse_date, parse_weight
 
 logger = logging.getLogger(__name__)
 router = Router(name="medical")
@@ -135,9 +135,9 @@ async def cb_vaccine_pet(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(VaccinationForm.name)
+@router.message(VaccinationForm.name, F.text)
 async def vaccine_name(message: Message, state: FSMContext):
-    name = message.text.strip()
+    name = message_text(message.text)
     if not name or len(name) > 200:
         await message.answer("⚠️ Название от 1 до 200 символов:")
         return
@@ -148,7 +148,7 @@ async def vaccine_name(message: Message, state: FSMContext):
     )
 
 
-@router.message(VaccinationForm.date_done)
+@router.message(VaccinationForm.date_done, F.text)
 async def vaccine_date_done(message: Message, state: FSMContext):
     d = parse_date(message.text)
     if d is None:
@@ -159,7 +159,7 @@ async def vaccine_date_done(message: Message, state: FSMContext):
     await message.answer(
         f"Дата: <b>{format_date(d)}</b> ✅\n\n📅 Когда следующая прививка? (ДД.ММ.ГГГГ)\nИли нажмите «Пропустить»:",
         parse_mode="HTML",
-        reply_markup=skip_kb,
+        reply_markup=skip_cancel_kb,
     )
 
 
@@ -174,7 +174,7 @@ async def vaccine_next_skip(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(VaccinationForm.next_date)
+@router.message(VaccinationForm.next_date, F.text)
 async def vaccine_next_date(message: Message, state: FSMContext):
     d = parse_date(message.text)
     if d is None:
@@ -188,9 +188,9 @@ async def vaccine_next_date(message: Message, state: FSMContext):
     )
 
 
-@router.message(VaccinationForm.notes)
+@router.message(VaccinationForm.notes, F.text)
 async def vaccine_notes(message: Message, state: FSMContext):
-    notes = message.text.strip()
+    notes = message_text(message.text)
     if notes == "-":
         notes = ""
     data = await state.get_data()
@@ -296,7 +296,7 @@ async def cb_vet_pet(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(VetVisitForm.visit_date)
+@router.message(VetVisitForm.visit_date, F.text)
 async def vet_date(message: Message, state: FSMContext):
     d = parse_date(message.text)
     if d is None:
@@ -307,25 +307,25 @@ async def vet_date(message: Message, state: FSMContext):
     await message.answer("🩺 Диагноз (или <b>-</b> чтобы пропустить):", parse_mode="HTML")
 
 
-@router.message(VetVisitForm.diagnosis)
+@router.message(VetVisitForm.diagnosis, F.text)
 async def vet_diagnosis(message: Message, state: FSMContext):
-    text = message.text.strip()
+    text = message_text(message.text)
     await state.update_data(diagnosis="" if text == "-" else text)
     await state.set_state(VetVisitForm.treatment)
     await message.answer("💊 Назначения/лечение (или <b>-</b>):", parse_mode="HTML")
 
 
-@router.message(VetVisitForm.treatment)
+@router.message(VetVisitForm.treatment, F.text)
 async def vet_treatment(message: Message, state: FSMContext):
-    text = message.text.strip()
+    text = message_text(message.text)
     await state.update_data(treatment="" if text == "-" else text)
     await state.set_state(VetVisitForm.notes)
     await message.answer("📝 Заметки (или <b>-</b>):", parse_mode="HTML")
 
 
-@router.message(VetVisitForm.notes)
+@router.message(VetVisitForm.notes, F.text)
 async def vet_notes(message: Message, state: FSMContext):
-    notes = message.text.strip()
+    notes = message_text(message.text)
     if notes == "-":
         notes = ""
     data = await state.get_data()
@@ -427,7 +427,7 @@ async def cb_weight_pet(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(WeightForm.weight)
+@router.message(WeightForm.weight, F.text)
 async def weight_value(message: Message, state: FSMContext):
     w = parse_weight(message.text)
     if w is None:
@@ -621,9 +621,9 @@ async def doc_photo_invalid(message: Message):
     await message.answer("⚠️ Пожалуйста, отправьте <b>фото</b> документа.", parse_mode="HTML")
 
 
-@router.message(DocumentForm.description)
+@router.message(DocumentForm.description, F.text)
 async def doc_description(message: Message, state: FSMContext):
-    desc = message.text.strip()
+    desc = message_text(message.text)
     if desc == "-":
         desc = ""
     data = await state.get_data()

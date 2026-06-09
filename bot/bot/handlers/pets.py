@@ -18,11 +18,11 @@ from bot.keyboards.keyboards import (
     pet_profile_kb,
     pets_list_kb,
     post_pet_created_kb,
-    skip_kb,
+    skip_cancel_kb,
     species_kb,
 )
 from bot.states.states import EditPetForm, PetForm
-from bot.utils.helpers import callback_int, callback_part, format_date, parse_date, parse_weight
+from bot.utils.helpers import callback_int, callback_part, format_date, message_text, parse_date, parse_weight
 
 logger = logging.getLogger(__name__)
 router = Router(name="pets")
@@ -73,6 +73,29 @@ async def cb_pet_list(callback: CallbackQuery):
         text,
         parse_mode="HTML",
         reply_markup=pets_list_kb(pets, action="view"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pet:list_page:"))
+async def cb_pet_list_page(callback: CallbackQuery):
+    """Пагинация списка питомцев без сброса текущего FSM-сценария."""
+    action = callback_part(callback.data, 2)
+    page = callback_int(callback.data, 3, min_value=0)
+    if not action or page is None:
+        await callback.answer("Некорректная страница", show_alert=True)
+        return
+
+    pets = await api_client.list_pets(callback.from_user.id)
+    if action == "view":
+        text = f"🐾 <b>Ваши питомцы</b> ({len(pets)}):"
+    else:
+        text = f"🐾 <b>Выберите питомца</b>\nПоказано {min(len(pets), (page + 1) * 8)} из {len(pets)}."
+
+    await callback.message.edit_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=pets_list_kb(pets, action=action, page=page),
     )
     await callback.answer()
 
@@ -152,10 +175,10 @@ async def cb_pet_add(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(PetForm.name)
+@router.message(PetForm.name, F.text)
 async def pet_name(message: Message, state: FSMContext):
     """Получаем имя питомца."""
-    name = message.text.strip()
+    name = message_text(message.text)
     if len(name) > 100:
         await message.answer("⚠️ Имя слишком длинное (макс. 100 символов). Попробуйте ещё раз:")
         return
@@ -181,7 +204,7 @@ async def pet_species(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         f"Вид: <b>{species}</b> ✅\n\nКакой породы ваш питомец?\nНапишите породу или нажмите «Пропустить»:",
         parse_mode="HTML",
-        reply_markup=skip_kb,
+        reply_markup=skip_cancel_kb,
     )
     await callback.answer()
 
@@ -197,15 +220,15 @@ async def pet_breed_skip(callback: CallbackQuery, state: FSMContext):
         "Введите дату в формате <b>ДД.ММ.ГГГГ</b>\n"
         "или нажмите «Пропустить»:",
         parse_mode="HTML",
-        reply_markup=skip_kb,
+        reply_markup=skip_cancel_kb,
     )
     await callback.answer()
 
 
-@router.message(PetForm.breed)
+@router.message(PetForm.breed, F.text)
 async def pet_breed(message: Message, state: FSMContext):
     """Получаем породу."""
-    breed = message.text.strip()
+    breed = message_text(message.text)
     if len(breed) > 100:
         await message.answer("⚠️ Слишком длинное название (макс. 100 символов). Попробуйте ещё раз:")
         return
@@ -217,7 +240,7 @@ async def pet_breed(message: Message, state: FSMContext):
         "Введите дату в формате <b>ДД.ММ.ГГГГ</b>\n"
         "или нажмите «Пропустить»:",
         parse_mode="HTML",
-        reply_markup=skip_kb,
+        reply_markup=skip_cancel_kb,
     )
 
 
@@ -232,12 +255,12 @@ async def pet_birth_skip(callback: CallbackQuery, state: FSMContext):
         "Например: <b>4.5</b>\n"
         "или нажмите «Пропустить»:",
         parse_mode="HTML",
-        reply_markup=skip_kb,
+        reply_markup=skip_cancel_kb,
     )
     await callback.answer()
 
 
-@router.message(PetForm.birth_date)
+@router.message(PetForm.birth_date, F.text)
 async def pet_birth_date(message: Message, state: FSMContext):
     """Получаем дату рождения."""
     d = parse_date(message.text)
@@ -245,7 +268,7 @@ async def pet_birth_date(message: Message, state: FSMContext):
         await message.answer(
             "⚠️ Неверный формат даты.\nВведите дату в формате <b>ДД.ММ.ГГГГ</b> (например, 15.03.2020):",
             parse_mode="HTML",
-            reply_markup=skip_kb,
+            reply_markup=skip_cancel_kb,
         )
         return
 
@@ -257,7 +280,7 @@ async def pet_birth_date(message: Message, state: FSMContext):
         "Например: <b>4.5</b>\n"
         "или нажмите «Пропустить»:",
         parse_mode="HTML",
-        reply_markup=skip_kb,
+        reply_markup=skip_cancel_kb,
     )
 
 
@@ -269,12 +292,12 @@ async def pet_weight_skip(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         "Вес: пропущено ✅\n\n📷 Отправьте фото вашего питомца\nили нажмите «Пропустить»:",
         parse_mode="HTML",
-        reply_markup=skip_kb,
+        reply_markup=skip_cancel_kb,
     )
     await callback.answer()
 
 
-@router.message(PetForm.weight)
+@router.message(PetForm.weight, F.text)
 async def pet_weight(message: Message, state: FSMContext):
     """Получаем вес."""
     w = parse_weight(message.text)
@@ -282,7 +305,7 @@ async def pet_weight(message: Message, state: FSMContext):
         await message.answer(
             "⚠️ Неверный формат веса.\nВведите число от 0.01 до 999 (в кг), например: <b>4.5</b>",
             parse_mode="HTML",
-            reply_markup=skip_kb,
+            reply_markup=skip_cancel_kb,
         )
         return
 
@@ -291,7 +314,7 @@ async def pet_weight(message: Message, state: FSMContext):
     await message.answer(
         f"Вес: <b>{w} кг</b> ✅\n\n📷 Отправьте фото вашего питомца\nили нажмите «Пропустить»:",
         parse_mode="HTML",
-        reply_markup=skip_kb,
+        reply_markup=skip_cancel_kb,
     )
 
 
@@ -317,7 +340,7 @@ async def pet_photo_invalid(message: Message):
     await message.answer(
         "⚠️ Пожалуйста, отправьте <b>фото</b> или нажмите «Пропустить».",
         parse_mode="HTML",
-        reply_markup=skip_kb,
+        reply_markup=skip_cancel_kb,
     )
 
 
@@ -422,10 +445,10 @@ async def cb_edit_field(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(EditPetForm.editing_name)
+@router.message(EditPetForm.editing_name, F.text)
 async def edit_name(message: Message, state: FSMContext):
     """Сохранение нового имени."""
-    name = message.text.strip()
+    name = message_text(message.text)
     if not name or len(name) > 100:
         await message.answer("⚠️ Имя должно быть от 1 до 100 символов:")
         return
@@ -441,10 +464,10 @@ async def edit_name(message: Message, state: FSMContext):
     await message.answer(f"✅ Имя изменено на <b>{escape(name)}</b>", parse_mode="HTML", reply_markup=main_menu_kb)
 
 
-@router.message(EditPetForm.editing_breed)
+@router.message(EditPetForm.editing_breed, F.text)
 async def edit_breed(message: Message, state: FSMContext):
     """Сохранение новой породы."""
-    breed = message.text.strip()
+    breed = message_text(message.text)
     data = await state.get_data()
     pet_id = data["edit_pet_id"]
     await state.clear()
@@ -457,7 +480,7 @@ async def edit_breed(message: Message, state: FSMContext):
     await message.answer(f"✅ Порода изменена на <b>{escape(breed)}</b>", parse_mode="HTML", reply_markup=main_menu_kb)
 
 
-@router.message(EditPetForm.editing_birth_date)
+@router.message(EditPetForm.editing_birth_date, F.text)
 async def edit_birth(message: Message, state: FSMContext):
     """Сохранение новой даты рождения."""
     d = parse_date(message.text)
@@ -476,7 +499,7 @@ async def edit_birth(message: Message, state: FSMContext):
     await message.answer(f"✅ Дата рождения: <b>{format_date(d)}</b>", parse_mode="HTML", reply_markup=main_menu_kb)
 
 
-@router.message(EditPetForm.editing_weight)
+@router.message(EditPetForm.editing_weight, F.text)
 async def edit_weight(message: Message, state: FSMContext):
     """Сохранение нового веса."""
     w = parse_weight(message.text)

@@ -1,7 +1,6 @@
 """Обработчики: сравнение двух кормов по фото."""
 
 import logging
-from html import escape
 
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
@@ -12,6 +11,7 @@ from zoo_shared.config import get_settings
 from bot import api_client
 from bot.keyboards.keyboards import back_to_menu_kb, cancel_kb, photo_menu_kb
 from bot.states.states import CompareForm
+from bot.utils.helpers import format_ai_result
 
 logger = logging.getLogger(__name__)
 router = Router(name="compare")
@@ -145,11 +145,8 @@ async def compare_photo_2(message: Message, state: FSMContext, bot: Bot):
         result = None
 
     if result:
-        if len(result) > 4000:
-            result = result[:4000] + "..."
-        safe_result = escape(result)
         await processing_msg.edit_text(
-            f"⚖️ <b>Результат сравнения кормов:</b>\n\n{safe_result}",
+            format_ai_result("⚖️ <b>Результат сравнения кормов:</b>", result),
             parse_mode="HTML",
             reply_markup=photo_menu_kb,
         )

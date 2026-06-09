@@ -8,6 +8,8 @@ from aiogram.types import (
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+INLINE_PAGE_SIZE = 8
+
 # ──────────────────── ГЛАВНОЕ МЕНЮ (Reply) ────────────────────
 
 main_menu_kb = ReplyKeyboardMarkup(
@@ -84,12 +86,22 @@ def _get(obj, key, default=""):
     return getattr(obj, key, default)
 
 
-def pets_list_kb(pets: list, action: str = "view") -> InlineKeyboardMarkup:
+def pets_list_kb(pets: list, action: str = "view", page: int = 0) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for pet in pets:
+    page = max(0, page)
+    start = page * INLINE_PAGE_SIZE
+    shown_pets = pets[start : start + INLINE_PAGE_SIZE]
+    for pet in shown_pets:
         emoji = _get(pet, "species_emoji", "🐾")
         builder.button(text=f"{emoji} {_get(pet, 'name')}", callback_data=f"pet:{action}:{_get(pet, 'id')}")
     builder.adjust(1)
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="◀️", callback_data=f"pet:list_page:{action}:{page - 1}"))
+    if start + INLINE_PAGE_SIZE < len(pets):
+        nav.append(InlineKeyboardButton(text="▶️", callback_data=f"pet:list_page:{action}:{page + 1}"))
+    if nav:
+        builder.row(*nav)
     if action == "view":
         builder.row(InlineKeyboardButton(text="➕ Добавить питомца", callback_data="pet:add"))
     builder.row(InlineKeyboardButton(text="◀️ Назад", callback_data="menu:main"))
@@ -188,17 +200,28 @@ reminder_repeat_kb = InlineKeyboardMarkup(
             InlineKeyboardButton(text="Ежемесячно", callback_data="repeat:monthly"),
         ],
         [InlineKeyboardButton(text="Ежегодно", callback_data="repeat:yearly")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="reminder:cancel")],
     ]
 )
 
 
-def reminders_list_kb(reminders: list) -> InlineKeyboardMarkup:
+def reminders_list_kb(reminders: list, page: int = 0) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    for rem in reminders:
+    page = max(0, page)
+    start = page * INLINE_PAGE_SIZE
+    shown_reminders = reminders[start : start + INLINE_PAGE_SIZE]
+    for rem in shown_reminders:
         emoji = _get(rem, "category_emoji", "⏰")
         status = "" if _get(rem, "is_active", True) else " ⏸"
         builder.button(text=f"{emoji} {_get(rem, 'title')}{status}", callback_data=f"reminder:view:{_get(rem, 'id')}")
     builder.adjust(1)
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="◀️", callback_data=f"reminder:list_page:{page - 1}"))
+    if start + INLINE_PAGE_SIZE < len(reminders):
+        nav.append(InlineKeyboardButton(text="▶️", callback_data=f"reminder:list_page:{page + 1}"))
+    if nav:
+        builder.row(*nav)
     builder.row(InlineKeyboardButton(text="◀️ Назад", callback_data="reminder:menu"))
     return builder.as_markup()
 
@@ -367,6 +390,13 @@ tips_menu_kb = InlineKeyboardMarkup(
 # ──────────────────── ОБЩИЕ ────────────────────
 
 skip_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⏭ Пропустить", callback_data="skip")]])
+
+skip_cancel_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="⏭ Пропустить", callback_data="skip")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")],
+    ]
+)
 
 cancel_kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")]])
 

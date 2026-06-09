@@ -12,7 +12,7 @@ from zoo_shared.config import get_settings
 from bot import api_client
 from bot.keyboards.keyboards import add_pet_cta_kb, back_to_menu_kb, cancel_kb, main_menu_kb, pets_list_kb
 from bot.states.states import MedicalTestForm
-from bot.utils.helpers import callback_int, format_date
+from bot.utils.helpers import callback_int, format_ai_result, format_date
 
 logger = logging.getLogger(__name__)
 router = Router(name="analysis")
@@ -205,11 +205,8 @@ async def analysis_photo_received(message: Message, state: FSMContext, bot: Bot)
         result = None
 
     if result:
-        if len(result) > 4000:
-            result = result[:4000] + "..."
-        safe_result = escape(result)
         await processing_msg.edit_text(
-            f"🔬 <b>Результат расшифровки анализов:</b>\n\n{safe_result}",
+            format_ai_result("🔬 <b>Результат расшифровки анализов:</b>", result),
             parse_mode="HTML",
             reply_markup=back_to_menu_kb,
         )

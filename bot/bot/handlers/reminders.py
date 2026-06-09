@@ -21,7 +21,7 @@ from bot.keyboards.keyboards import (
     reminders_menu_kb,
 )
 from bot.states.states import ReminderForm
-from bot.utils.helpers import callback_int, format_datetime, parse_date, parse_time
+from bot.utils.helpers import callback_int, format_datetime, message_text, parse_date, parse_time
 
 logger = logging.getLogger(__name__)
 router = Router(name="reminders")
@@ -120,10 +120,10 @@ async def reminder_category(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(ReminderForm.title)
+@router.message(ReminderForm.title, F.text)
 async def reminder_title(message: Message, state: FSMContext):
     """Получаем название."""
-    title = message.text.strip()
+    title = message_text(message.text)
     if not title or len(title) > 200:
         await message.answer("⚠️ Название должно быть от 1 до 200 символов:")
         return
@@ -137,10 +137,10 @@ async def reminder_title(message: Message, state: FSMContext):
     )
 
 
-@router.message(ReminderForm.description)
+@router.message(ReminderForm.description, F.text)
 async def reminder_description(message: Message, state: FSMContext):
     """Получаем описание."""
-    desc = message.text.strip()
+    desc = message_text(message.text)
     if desc == "-":
         desc = ""
     await state.update_data(description=desc)
@@ -151,7 +151,7 @@ async def reminder_description(message: Message, state: FSMContext):
     )
 
 
-@router.message(ReminderForm.date)
+@router.message(ReminderForm.date, F.text)
 async def reminder_date(message: Message, state: FSMContext):
     """Получаем дату."""
     d = parse_date(message.text)
@@ -169,7 +169,7 @@ async def reminder_date(message: Message, state: FSMContext):
     )
 
 
-@router.message(ReminderForm.time)
+@router.message(ReminderForm.time, F.text)
 async def reminder_time(message: Message, state: FSMContext):
     """Получаем время."""
     t = parse_time(message.text)
@@ -259,6 +259,29 @@ async def cb_reminder_list(callback: CallbackQuery):
             parse_mode="HTML",
             reply_markup=reminders_list_kb(reminders),
         )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("reminder:list_page:"))
+async def cb_reminder_list_page(callback: CallbackQuery):
+    """Пагинация списка напоминаний."""
+    page = callback_int(callback.data, 2, min_value=0)
+    if page is None:
+        await callback.answer("Некорректная страница", show_alert=True)
+        return
+
+    reminders = await api_client.list_reminders(callback.from_user.id)
+    active = sum(1 for r in reminders if r.get("is_active", True))
+    paused = len(reminders) - active
+    status_text = f"✅ Активных: {active}"
+    if paused:
+        status_text += f" | ⏸ На паузе: {paused}"
+
+    await callback.message.edit_text(
+        f"📋 <b>Ваши напоминания</b> ({len(reminders)})\n{status_text}",
+        parse_mode="HTML",
+        reply_markup=reminders_list_kb(reminders, page=page),
+    )
     await callback.answer()
 
 
